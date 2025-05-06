@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-    origin: ['http://localhost:3000', 'https://juanems-web-frontend.onrender.com']
+    origin: ['http://localhost:3000', 'https://juanems-web-frontend.onrender.com', 'https://juanems-user-frontend.vercel.app'],
 }));
 app.use(express.json());
 
