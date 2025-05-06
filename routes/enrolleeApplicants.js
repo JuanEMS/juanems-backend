@@ -49,6 +49,28 @@ const upload = multer({
   },
 });
 
+
+router.post('/test-email', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    if (!email || !name) {
+      return res.status(400).json({ error: 'Email and name are required' });
+    }
+
+    // Test SMTP connection
+    await emailService.testSmtpConnection();
+
+    // Generate and send a test OTP
+    const otp = generateOTP();
+    await sendOTP(email, name, otp, 'verification');
+
+    res.status(200).json({ message: 'Test email sent successfully' });
+  } catch (error) {
+    console.error('Test email error:', error);
+    res.status(500).json({ error: `Failed to send test email: ${error.message}` });
+  }
+});
+
 router.post('/save-admission-requirements', upload.any(), async (req, res) => {
   try {
     const { email, requirements } = req.body;
@@ -1051,9 +1073,13 @@ const validateFormData = (formData) => {
   return errors;
 };
 
+
 router.post('/save-registration', async (req, res) => {
   try {
     const { email, formData } = req.body;
+
+    // Log received data for debugging
+    console.log('Received save-registration request:', { email, formData });
 
     // Validate input
     if (!sanitizeString(email)) {
@@ -1066,6 +1092,7 @@ router.post('/save-registration', async (req, res) => {
     // Validate formData structure
     const validationErrors = validateFormData(formData);
     if (validationErrors.length > 0) {
+      console.log('Validation errors:', validationErrors);
       return res.status(400).json({ error: 'Validation failed', details: validationErrors });
     }
 
@@ -1076,48 +1103,48 @@ router.post('/save-registration', async (req, res) => {
     }
 
     // Update personal information (Step 1)
-    applicant.prefix = sanitizeString(formData.prefix);
+    applicant.prefix = sanitizeString(formData.prefix) || '';
     applicant.firstName = sanitizeString(formData.firstName) || applicant.firstName;
-    applicant.middleName = sanitizeString(formData.middleName);
+    applicant.middleName = sanitizeString(formData.middleName) || '';
     applicant.lastName = sanitizeString(formData.lastName) || applicant.lastName;
-    applicant.suffix = sanitizeString(formData.suffix);
-    applicant.gender = sanitizeString(formData.gender);
-    applicant.lrnNo = sanitizeString(formData.lrnNo);
-    applicant.civilStatus = sanitizeString(formData.civilStatus);
-    applicant.religion = sanitizeString(formData.religion);
-    applicant.birthDate = sanitizeString(formData.birthDate);
-    applicant.countryOfBirth = sanitizeString(formData.countryOfBirth);
-    applicant.birthPlaceCity = sanitizeString(formData.birthPlaceCity);
-    applicant.birthPlaceProvince = sanitizeString(formData.birthPlaceProvince);
+    applicant.suffix = sanitizeString(formData.suffix) || '';
+    applicant.gender = sanitizeString(formData.gender) || '';
+    applicant.lrnNo = sanitizeString(formData.lrnNo) || '';
+    applicant.civilStatus = sanitizeString(formData.civilStatus) || '';
+    applicant.religion = sanitizeString(formData.religion) || '';
+    applicant.birthDate = sanitizeString(formData.birthDate) || '';
+    applicant.countryOfBirth = sanitizeString(formData.countryOfBirth) || '';
+    applicant.birthPlaceCity = sanitizeString(formData.birthPlaceCity) || '';
+    applicant.birthPlaceProvince = sanitizeString(formData.birthPlaceProvince) || '';
     applicant.nationality = sanitizeString(formData.nationality) || applicant.nationality;
 
     // Update admission and enrollment requirements (Step 2)
-    applicant.entryLevel = sanitizeString(formData.entryLevel);
+    applicant.entryLevel = sanitizeString(formData.entryLevel) || '';
 
     // Update contact details (Step 3)
-    applicant.presentHouseNo = sanitizeString(formData.presentHouseNo);
-    applicant.presentBarangay = sanitizeString(formData.presentBarangay);
-    applicant.presentCity = sanitizeString(formData.presentCity);
-    applicant.presentProvince = incurableString(formData.presentProvince);
-    applicant.presentPostalCode = sanitizeString(formData.presentPostalCode);
-    applicant.permanentHouseNo = sanitizeString(formData.permanentHouseNo);
-    applicant.permanentBarangay = sanitizeString(formData.permanentBarangay);
-    applicant.permanentCity = sanitizeString(formData.permanentCity);
-    applicant.permanentProvince = sanitizeString(formData.permanentProvince);
-    applicant.permanentPostalCode = sanitizeString(formData.permanentPostalCode);
+    applicant.presentHouseNo = sanitizeString(formData.presentHouseNo) || '';
+    applicant.presentBarangay = sanitizeString(formData.presentBarangay) || '';
+    applicant.presentCity = sanitizeString(formData.presentCity) || '';
+    applicant.presentProvince = sanitizeString(formData.presentProvince) || '';
+    applicant.presentPostalCode = sanitizeString(formData.presentPostalCode) || '';
+    applicant.permanentHouseNo = sanitizeString(formData.permanentHouseNo) || '';
+    applicant.permanentBarangay = sanitizeString(formData.permanentBarangay) || '';
+    applicant.permanentCity = sanitizeString(formData.permanentCity) || '';
+    applicant.permanentProvince = sanitizeString(formData.permanentProvince) || '';
+    applicant.permanentPostalCode = sanitizeString(formData.permanentPostalCode) || '';
     applicant.mobile = sanitizeString(formData.mobile) || applicant.mobile;
-    applicant.telephoneNo = sanitizeString(formData.telephoneNo);
+    applicant.telephoneNo = sanitizeString(formData.telephoneNo) || '';
     applicant.emailAddress = sanitizeString(formData.emailAddress) || applicant.email;
 
     // Update educational background (Step 4)
-    applicant.elementarySchoolName = sanitizeString(formData.elementarySchoolName);
-    applicant.elementaryLastYearAttended = sanitizeString(formData.elementaryLastYearAttended);
-    applicant.elementaryGeneralAverage = sanitizeString(formData.elementaryGeneralAverage);
-    applicant.elementaryRemarks = sanitizeString(formData.elementaryRemarks);
-    applicant.juniorHighSchoolName = sanitizeString(formData.juniorHighSchoolName);
-    applicant.juniorHighLastYearAttended = sanitizeString(formData.juniorHighLastYearAttended);
-    applicant.juniorHighGeneralAverage = sanitizeString(formData.juniorHighGeneralAverage);
-    applicant.juniorHighRemarks = sanitizeString(formData.juniorHighRemarks);
+    applicant.elementarySchoolName = sanitizeString(formData.elementarySchoolName) || '';
+    applicant.elementaryLastYearAttended = sanitizeString(formData.elementaryLastYearAttended) || '';
+    applicant.elementaryGeneralAverage = sanitizeString(formData.elementaryGeneralAverage) || '';
+    applicant.elementaryRemarks = sanitizeString(formData.elementaryRemarks) || '';
+    applicant.juniorHighSchoolName = sanitizeString(formData.juniorHighSchoolName) || '';
+    applicant.juniorHighLastYearAttended = sanitizeString(formData.juniorHighLastYearAttended) || '';
+    applicant.juniorHighGeneralAverage = sanitizeString(formData.juniorHighGeneralAverage) || '';
+    applicant.juniorHighRemarks = sanitizeString(formData.juniorHighRemarks) || '';
 
     // Update family background (Step 5)
     applicant.familyContacts = [];
@@ -1125,18 +1152,18 @@ router.post('/save-registration', async (req, res) => {
       for (const contact of formData.contacts) {
         if (typeof contact === 'object' && contact) {
           applicant.familyContacts.push({
-            relationship: sanitizeString(contact.relationship),
-            firstName: sanitizeString(contact.firstName),
-            middleName: sanitizeString(contact.middleName),
-            lastName: sanitizeString(contact.lastName),
-            occupation: sanitizeString(contact.occupation),
-            houseNo: sanitizeString(contact.houseNo),
-            city: sanitizeString(contact.city),
-            province: sanitizeString(contact.province),
-            country: sanitizeString(contact.country),
-            mobileNo: sanitizeString(contact.mobileNo),
-            telephoneNo: sanitizeString(contact.telephoneNo),
-            emailAddress: sanitizeString(contact.emailAddress),
+            relationship: sanitizeString(contact.relationship) || '',
+            firstName: sanitizeString(contact.firstName) || '',
+            middleName: sanitizeString(contact.middleName) || '',
+            lastName: sanitizeString(contact.lastName) || '',
+            occupation: sanitizeString(contact.occupation) || '',
+            houseNo: sanitizeString(contact.houseNo) || '',
+            city: sanitizeString(contact.city) || '',
+            province: sanitizeString(contact.province) || '',
+            country: sanitizeString(contact.country) || '',
+            mobileNo: sanitizeString(contact.mobileNo) || '',
+            telephoneNo: sanitizeString(contact.telephoneNo) || '',
+            emailAddress: sanitizeString(contact.emailAddress) || '',
             isEmergencyContact: typeof contact.isEmergencyContact === 'boolean' ? contact.isEmergencyContact : false
           });
         }

@@ -3,17 +3,53 @@ const otpGenerator = require('otp-generator');
 const config = require('../config/emailConfig');
 const User = require('../models/EnrolleeApplicant'); // Your user model
 
+// Validate email configuration
+const validateEmailConfig = () => {
+  const requiredFields = ['host', 'port', 'auth.user', 'auth.pass', 'sender', 'senderName'];
+  for (const field of requiredFields) {
+    let value = config;
+    for (const key of field.split('.')) {
+      value = value[key];
+      if (!value) {
+        throw new Error(`Missing or invalid email configuration: ${field}`);
+      }
+    }
+  }
+};
+
 
 // Create transporter
-const transporter = nodemailer.createTransport({
+let transporter;
+try {
+  validateEmailConfig();
+  transporter = nodemailer.createTransport({
+    service: config.service,
     host: config.host,
     port: config.port,
     secure: config.secure,
     auth: {
-        user: config.auth.user,
-        pass: config.auth.pass
-    }
-});
+      user: config.auth.user,
+      pass: config.auth.pass,
+    },
+    logger: true, // Enable logging
+    debug: true,  // Show debug output
+  });
+} catch (error) {
+  console.error('Failed to initialize email transporter:', error.message);
+  throw error;
+}
+
+// Test SMTP connection
+const testSmtpConnection = async () => {
+  try {
+    await transporter.verify();
+    console.log('SMTP connection verified successfully');
+    return { success: true, message: 'SMTP connection verified' };
+  } catch (error) {
+    console.error('SMTP connection test failed:', error);
+    throw new Error(`SMTP connection test failed: ${error.message}`);
+  }
+};
 
 const generateOTP = () => {
   return otpGenerator.generate(6, {
@@ -37,10 +73,14 @@ function generateRandomPassword() {
   return password;
 }
 
-const sendOTP = async (email, name, otp, type = 'verification') => {
+// Send OTP with retry mechanism
+const sendOTP = async (email, name, otp, type = 'verification', retries = 2) => {
   try {
-    let subject, text, html;
+    if (!email || !name || !otp) {
+      throw new Error('Missing required parameters: email, name, or OTP');
+    }
 
+    let subject, text, html;
     if (type === 'login') {
       subject = 'JuanEMS: Login Verification Code';
       text = `Dear ${name},\n\nYour login verification code is: ${otp}\n\nThis code is valid for 3 minutes. Please enter it to complete your login.\n\nIf you didn't request this login, please secure your account immediately.\n\nBest regards,\nJuanEMS Administration`;
@@ -67,7 +107,6 @@ const sendOTP = async (email, name, otp, type = 'verification') => {
         </div>
       `;
     } else {
-      // Default verification email (registration)
       subject = 'JuanEMS: Account Verification Code';
       text = `Dear ${name},\n\nThank you for registering with Juan Enrollment Management System (JuanEMS).\n\nYour verification code is: ${otp}\n\nThis code is valid for 3 minutes only. Please do not share this code with anyone.\n\nIf you did not request this verification, please ignore this email or contact our support team.\n\nBest regards,\nJuanEMS Administration`;
       html = `
@@ -100,11 +139,24 @@ const sendOTP = async (email, name, otp, type = 'verification') => {
       to: email,
       subject,
       text,
-      html
+      html,
     };
 
-    await transporter.sendMail(mailOptions);
-    return true;
+    let lastError;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const result = await transporter.sendMail(mailOptions);
+        console.log(`OTP email sent successfully to ${email}: ${result.messageId}`);
+        return true;
+      } catch (error) {
+        lastError = error;
+        console.error(`Attempt ${attempt + 1} failed to send OTP to ${email}: ${error.message}`);
+        if (attempt < retries) {
+          await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));
+        }
+      }
+    }
+    throw new Error(`Failed to send OTP after ${retries + 1} attempts: ${lastError.message}`);
   } catch (error) {
     console.error('Error sending OTP:', error);
     throw error;
@@ -238,13 +290,14 @@ const resendOTP = async (email) => {
   }
 };
 
-const sendPasswordEmail = async (email, name, password) => {
+// Send password email
+const sendPasswordEmail = async (email, name, password, studentID, applicantID) => {
   try {
     const mailOptions = {
       from: `${config.senderName} <${config.sender}>`,
       to: email,
       subject: 'JuanEMS: Your Account Login Credentials',
-      text: `Dear ${name},\n\nThank you for verifying your account with Juan Enrollment Management System (JuanEMS).\n\nYour account login credentials are:\n\nEmail: ${email}\nPassword: ${password}\n\nPlease keep this information secure and do not share it with anyone.\n\nYou can now log in to your account using these credentials.\n\nBest regards,\nJuanEMS Administration`,
+      text: `Dear ${name},\n\nThank you for verifying your account with Juan Enrollment Management System (JuanEMS).\n\nYour account login credentials are:\n\nEmail: ${email}\nPassword: ${password}\nStudent ID: ${studentID}\nApplicant ID: ${applicantID}\n\nPlease keep this information secure and do not share it with anyone.\n\nYou can now log in to your account using these credentials.\n\nBest regards,\nJuanEMS Administration`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
           <div style="background-color: #2A67D5; padding: 20px; text-align: center;">
@@ -259,6 +312,8 @@ const sendPasswordEmail = async (email, name, password) => {
             <div style="background-color: #f5f5f5; padding: 15px; border-radius: 4px; margin: 15px 0;">
               <p><strong>Email:</strong> ${email}</p>
               <p><strong>Password:</strong> ${password}</p>
+              <p><strong>Student ID:</strong> ${studentID}</p>
+              <p><strong>Applicant ID:</strong> ${applicantID}</p>
             </div>
             <p>You can now log in to your account using the credentials above.</p>
             <p style="color: #e74c3c; font-style: italic;">For your security, please do not share this information with anyone.</p>
@@ -270,11 +325,11 @@ const sendPasswordEmail = async (email, name, password) => {
             <p>© ${new Date().getFullYear()} Juan Enrollment Management System. All rights reserved.</p>
           </div>
         </div>
-      `
+      `,
     };
 
     const result = await transporter.sendMail(mailOptions);
-    console.log('Password email sent successfully:', result.messageId);
+    console.log(`Password email sent successfully to ${email}: ${result.messageId}`);
     return true;
   } catch (error) {
     console.error('Error sending password email:', error);
@@ -305,14 +360,14 @@ const expireUnverifiedAccounts = async () => {
     }
 };
 
-// In emailService.js, add a new function
-const sendPasswordResetEmail = async (email, name, newPassword) => {
+// Send password reset email
+const sendPasswordResetEmail = async (email, name, newPassword, studentID) => {
   try {
     const mailOptions = {
       from: `${config.senderName} <${config.sender}>`,
       to: email,
       subject: 'JuanEMS: Your New Password',
-      text: `Dear ${name},\n\nYour password has been successfully reset.\n\nYour new login credentials are:\n\nEmail: ${email}\nNew Password: ${newPassword}\n\nIf you didn't request this password reset, please contact our support team immediately.\n\nBest regards,\nJuanEMS Administration`,
+      text: `Dear ${name},\n\nYour password has been successfully reset.\n\nYour new login credentials are:\n\nEmail: ${email}\nNew Password: ${newPassword}\nStudent ID: ${studentID}\n\nIf you didn't request this password reset, please contact our support team immediately.\n\nBest regards,\nJuanEMS Administration`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
           <div style="background-color: #2A67D5; padding: 20px; text-align: center;">
@@ -326,6 +381,7 @@ const sendPasswordResetEmail = async (email, name, newPassword) => {
             <div style="background-color: #f5f5f5; padding: 15px; border-radius: 4px; margin: 15px 0;">
               <p><strong>Email:</strong> ${email}</p>
               <p><strong>New Password:</strong> ${newPassword}</p>
+              <p><strong>Student ID:</strong> ${studentID}</p>
             </div>
             <p style="color: #e74c3c; font-weight: bold;">For your security, please do not share your credentials with anyone.</p>
             <p>If you didn't request this password reset, please contact our support team immediately.</p>
@@ -337,10 +393,11 @@ const sendPasswordResetEmail = async (email, name, newPassword) => {
             <p>© ${new Date().getFullYear()} Juan Enrollment Management System. All rights reserved.</p>
           </div>
         </div>
-      `
+      `,
     };
 
-    await transporter.sendMail(mailOptions);
+    const result = await transporter.sendMail(mailOptions);
+    console.log(`Password reset email sent successfully to ${email}: ${result.messageId}`);
     return true;
   } catch (error) {
     console.error('Error sending password reset email:', error);
@@ -348,6 +405,7 @@ const sendPasswordResetEmail = async (email, name, newPassword) => {
   }
 };
 
+// Send admin password email
 const sendAdminPasswordEmail = async (email, name, password) => {
   try {
     const mailOptions = {
@@ -380,14 +438,14 @@ const sendAdminPasswordEmail = async (email, name, password) => {
             <p>© ${new Date().getFullYear()} Juan Enrollment Management System. All rights reserved.</p>
           </div>
         </div>
-      `
+      `,
     };
 
     const result = await transporter.sendMail(mailOptions);
-    console.log('Password email sent successfully:', result.messageId);
+    console.log(`Admin password email sent successfully to ${email}: ${result.messageId}`);
     return true;
   } catch (error) {
-    console.error('Error sending password email:', error);
+    console.error('Error sending admin password email:', error);
     throw error;
   }
 };
@@ -400,5 +458,6 @@ module.exports = {
   sendPasswordEmail,  // Add this line if it's not already there
   expireUnverifiedAccounts,
   sendPasswordResetEmail,
-  sendAdminPasswordEmail
+  sendAdminPasswordEmail,
+  testSmtpConnection
 };
