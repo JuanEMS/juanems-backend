@@ -180,7 +180,7 @@ router.post('/generate-waiver-pdf', (req, res) => {
     doc
       .font('Helvetica')
       .fontSize(10)
-      .text(formattedDateIssued, marginLeft + contentWidth / 2, y, {
+      .text(formattedDateSigned, marginLeft + contentWidth / 2, y, {
         width: contentWidth / 2,
         align: 'right',
       });
@@ -209,7 +209,7 @@ router.post('/generate-waiver-pdf', (req, res) => {
     doc
       .font('Helvetica')
       .fontSize(8)
-      .text('Date Signed', marginLeft + contentWidth / 2, y, {
+      .text('Date and Time Signed', marginLeft + contentWidth / 2, y, {
         width: contentWidth / 2,
         align: 'right',
       });
