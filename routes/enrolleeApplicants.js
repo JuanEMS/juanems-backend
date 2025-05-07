@@ -78,10 +78,6 @@ router.post('/save-admission-requirements', upload.any(), async (req, res) => {
       return res.status(400).json({ error: 'Email and requirements are required' });
     }
 
-    console.log('Received save-admission-requirements request:');
-    console.log('Email:', email);
-    console.log('Requirements:', requirements);
-
     const parsedRequirements = JSON.parse(requirements);
     const files = req.files || [];
 
@@ -91,45 +87,46 @@ router.post('/save-admission-requirements', upload.any(), async (req, res) => {
       fileMap[id] = file;
     });
 
-    const admissionRequirements = parsedRequirements.map((req) => {
-      const file = fileMap[req.id];
-      return {
-        requirementId: req.id,
-        name: req.name,
-        fileContent: file ? file.buffer : null,
-        fileType: file ? file.mimetype : null,
-        fileName: file ? file.originalname : null,
-        status: req.waived ? 'Waived' : file ? 'Submitted' : req.submitted ? 'Submitted' : 'Not Submitted',
-        waiverDetails: req.waiverDetails
-      };
-    });
-
-    console.log('Prepared admissionRequirements for saving:', JSON.stringify(admissionRequirements, null, 2));
-
-    const enrollee = await EnrolleeApplicant.findOneAndUpdate(
-      { email: email.toLowerCase() },
-      {
-        $set: { admissionRequirements }
-      },
-      { new: true, runValidators: true }
-    );
-
-    if (!enrollee) {
+    const applicant = await EnrolleeApplicant.findOne({ email: email.toLowerCase() });
+    if (!applicant) {
       return res.status(404).json({ error: 'Applicant not found' });
     }
 
-    await enrollee.save();
+    const admissionRequirements = parsedRequirements.map((req) => {
+      const file = fileMap[req.id];
+      const existingReq = applicant.admissionRequirements.find(r => r.requirementId === req.id) || {};
+      return {
+        requirementId: req.id,
+        name: req.name,
+        fileContent: file ? file.buffer : existingReq.fileContent,
+        fileType: file ? file.mimetype : existingReq.fileType,
+        fileName: file ? file.originalname : existingReq.fileName,
+        status: req.waived ? 'Waived' : file ? 'Submitted' : req.submitted ? 'Submitted' : existingReq.status || 'Not Submitted',
+        waiverDetails: req.waiverDetails || existingReq.waiverDetails
+      };
+    });
 
-    console.log('Saved enrollee document:');
-    console.log('admissionRequirementsStatus:', enrollee.admissionRequirementsStatus);
-    console.log('admissionAdminFirstStatus:', enrollee.admissionAdminFirstStatus);
-    console.log('admissionRequirements:', JSON.stringify(enrollee.admissionRequirements, null, 2));
+    applicant.admissionRequirements = admissionRequirements;
+
+    const allComplete = admissionRequirements.every(req => 
+      req.status === 'Verified' || req.status === 'Waived'
+    );
+    const allAddressed = admissionRequirements.every(req =>
+      req.status !== 'Not Submitted'
+    );
+
+    if (allComplete && allAddressed && applicant.admissionRequirementsStatus !== 'Complete') {
+      applicant.admissionRequirementsStatus = 'Complete';
+      applicant.admissionAdminFirstStatus = 'On-going';
+    }
+
+    await applicant.save();
 
     res.json({
       message: 'Admission requirements saved successfully',
-      admissionRequirements: enrollee.admissionRequirements,
-      admissionRequirementsStatus: enrollee.admissionRequirementsStatus,
-      admissionAdminFirstStatus: enrollee.admissionAdminFirstStatus
+      admissionRequirements: applicant.admissionRequirements,
+      admissionRequirementsStatus: applicant.admissionRequirementsStatus,
+      admissionAdminFirstStatus: applicant.admissionAdminFirstStatus
     });
   } catch (err) {
     console.error('Error saving admission requirements:', err);
