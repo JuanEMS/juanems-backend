@@ -95,13 +95,6 @@ router.post('/generate-waiver-pdf', (req, res) => {
       .fillColor('#444444')
       .text(`Academic Year: ${academicYear}`, marginLeft, y, { width: contentWidth });
     y += 12;
-    
-    doc
-      .font('Helvetica')
-      .fontSize(10)
-      .text(`Date Issued: ${formattedDateIssued}`, marginLeft, y, { width: contentWidth });
-    y += 12;
-    
     doc
       .font('Helvetica')
       .fontSize(10)
