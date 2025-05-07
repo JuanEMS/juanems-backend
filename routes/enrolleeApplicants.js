@@ -78,10 +78,6 @@ router.post('/save-admission-requirements', upload.any(), async (req, res) => {
       return res.status(400).json({ error: 'Email and requirements are required' });
     }
 
-    console.log('Received save-admission-requirements request:');
-    console.log('Email:', email);
-    console.log('Requirements:', requirements);
-
     const parsedRequirements = JSON.parse(requirements);
     const files = req.files || [];
 
@@ -91,45 +87,46 @@ router.post('/save-admission-requirements', upload.any(), async (req, res) => {
       fileMap[id] = file;
     });
 
-    const admissionRequirements = parsedRequirements.map((req) => {
-      const file = fileMap[req.id];
-      return {
-        requirementId: req.id,
-        name: req.name,
-        fileContent: file ? file.buffer : null,
-        fileType: file ? file.mimetype : null,
-        fileName: file ? file.originalname : null,
-        status: req.waived ? 'Waived' : file ? 'Submitted' : req.submitted ? 'Submitted' : 'Not Submitted',
-        waiverDetails: req.waiverDetails
-      };
-    });
-
-    console.log('Prepared admissionRequirements for saving:', JSON.stringify(admissionRequirements, null, 2));
-
-    const enrollee = await EnrolleeApplicant.findOneAndUpdate(
-      { email: email.toLowerCase() },
-      {
-        $set: { admissionRequirements }
-      },
-      { new: true, runValidators: true }
-    );
-
-    if (!enrollee) {
+    const applicant = await EnrolleeApplicant.findOne({ email: email.toLowerCase() });
+    if (!applicant) {
       return res.status(404).json({ error: 'Applicant not found' });
     }
 
-    await enrollee.save();
+    const admissionRequirements = parsedRequirements.map((req) => {
+      const file = fileMap[req.id];
+      const existingReq = applicant.admissionRequirements.find(r => r.requirementId === req.id) || {};
+      return {
+        requirementId: req.id,
+        name: req.name,
+        fileContent: file ? file.buffer : existingReq.fileContent,
+        fileType: file ? file.mimetype : existingReq.fileType,
+        fileName: file ? file.originalname : existingReq.fileName,
+        status: req.waived ? 'Waived' : file ? 'Submitted' : req.submitted ? 'Submitted' : existingReq.status || 'Not Submitted',
+        waiverDetails: req.waiverDetails || existingReq.waiverDetails
+      };
+    });
 
-    console.log('Saved enrollee document:');
-    console.log('admissionRequirementsStatus:', enrollee.admissionRequirementsStatus);
-    console.log('admissionAdminFirstStatus:', enrollee.admissionAdminFirstStatus);
-    console.log('admissionRequirements:', JSON.stringify(enrollee.admissionRequirements, null, 2));
+    applicant.admissionRequirements = admissionRequirements;
+
+    const allComplete = admissionRequirements.every(req => 
+      req.status === 'Verified' || req.status === 'Waived'
+    );
+    const allAddressed = admissionRequirements.every(req =>
+      req.status !== 'Not Submitted'
+    );
+
+    if (allComplete && allAddressed && applicant.admissionRequirementsStatus !== 'Complete') {
+      applicant.admissionRequirementsStatus = 'Complete';
+      applicant.admissionAdminFirstStatus = 'On-going';
+    }
+
+    await applicant.save();
 
     res.json({
       message: 'Admission requirements saved successfully',
-      admissionRequirements: enrollee.admissionRequirements,
-      admissionRequirementsStatus: enrollee.admissionRequirementsStatus,
-      admissionAdminFirstStatus: enrollee.admissionAdminFirstStatus
+      admissionRequirements: applicant.admissionRequirements,
+      admissionRequirementsStatus: applicant.admissionRequirementsStatus,
+      admissionAdminFirstStatus: applicant.admissionAdminFirstStatus
     });
   } catch (err) {
     console.error('Error saving admission requirements:', err);
@@ -317,7 +314,6 @@ router.get('/check-email/:email', async (req, res) => {
   }
 });
 
-// Updated Route to fetch all personal details with logging
 router.get('/personal-details/:email', async (req, res) => {
   try {
     const { email } = req.params;
@@ -388,8 +384,9 @@ router.get('/personal-details/:email', async (req, res) => {
       applicantID: applicant.applicantID,
       registrationStatus: applicant.registrationStatus,
       dob: applicant.dob,
+      // Add admissionAdminFirstStatus
+      admissionAdminFirstStatus: applicant.admissionAdminFirstStatus || 'On-going',
     };
-    console.log('Fetched applicantData:', applicant);
 
     console.log(`Personal details fetched for ${cleanEmail}:`, responseData);
 
@@ -1355,7 +1352,61 @@ router.post('/save-exam-interview', async (req, res) => {
   }
 });
 
-// Fetch admission requirements
+router.get('/exam-details/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const cleanEmail = email.trim().toLowerCase();
+    console.log(`Received request for exam-details with email: ${cleanEmail}`);
+
+    const applicant = await EnrolleeApplicant.findOne({
+      email: cleanEmail,
+      status: 'Active',
+    }).sort({ createdAt: -1 });
+
+    console.log('Applicant query result:', applicant ? `Found (ID: ${applicant._id})` : 'Not found');
+
+    if (!applicant) {
+      console.log(`No active applicant found for email: ${cleanEmail}`);
+      const otherStatus = await EnrolleeApplicant.findOne({ email: cleanEmail });
+      return res.status(404).json({
+        error: 'Active applicant not found',
+        details: otherStatus
+          ? `Applicant found with status: ${otherStatus.status}`
+          : 'No applicant record exists for this email',
+      });
+    }
+
+    if (!applicant.approvedExamDate && applicant.admissionAdminFirstStatus === 'On-going') {
+      console.log('Exam details not yet assigned for applicant:', applicant._id);
+      return res.status(200).json({
+        admissionAdminFirstStatus: applicant.admissionAdminFirstStatus,
+        admissionExamDetailsStatus: applicant.admissionExamDetailsStatus || 'Incomplete',
+        message: 'Exam details are not yet assigned. Application is under review.',
+      });
+    }
+
+    console.log('Returning exam details:', {
+      admissionAdminFirstStatus: applicant.admissionAdminFirstStatus,
+      approvedExamDate: applicant.approvedExamDate,
+      admissionExamDetailsStatus: applicant.admissionExamDetailsStatus,
+    });
+
+    res.status(200).json({
+      admissionAdminFirstStatus: applicant.admissionAdminFirstStatus || 'On-going',
+      approvedExamDate: applicant.approvedExamDate,
+      approvedExamTime: applicant.approvedExamTime,
+      admissionExamDetailsStatus: applicant.admissionExamDetailsStatus || 'Incomplete',
+      admissionRejectMessage: applicant.admissionRejectMessage || '',
+      approvedExamFeeAmount: applicant.approvedExamFeeAmount,
+      approvedExamFeeStatus: applicant.approvedExamFeeStatus || 'Required',
+      approvedExamRoom: applicant.approvedExamRoom,
+    });
+  } catch (err) {
+    console.error('Error fetching exam details:', err.message, err.stack);
+    res.status(500).json({ error: 'Server error while fetching exam details' });
+  }
+});
+
 router.get('/admission-requirements/:email', async (req, res) => {
   try {
     const { email } = req.params;
@@ -1365,7 +1416,15 @@ router.get('/admission-requirements/:email', async (req, res) => {
     }
     res.status(200).json({
       admissionRequirements: applicant.admissionRequirements,
-      admissionRequirementsStatus: applicant.admissionRequirementsStatus
+      admissionRequirementsStatus: applicant.admissionRequirementsStatus,
+      admissionAdminFirstStatus: applicant.admissionAdminFirstStatus || 'On-going',
+      approvedExamDate: applicant.approvedExamDate,
+      approvedExamTime: applicant.approvedExamTime,
+      admissionExamDetailsStatus: applicant.admissionExamDetailsStatus || 'Incomplete',
+      admissionRejectMessage: applicant.admissionRejectMessage || '',
+      approvedExamFeeAmount: applicant.approvedExamFeeAmount,
+      approvedExamFeeStatus: applicant.approvedExamFeeStatus || 'Required',
+      approvedExamRoom: applicant.approvedExamRoom,
     });
   } catch (err) {
     console.error('Error fetching admission requirements:', err);

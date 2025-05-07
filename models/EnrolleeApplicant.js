@@ -108,9 +108,9 @@ const enrolleeApplicantSchema = new mongoose.Schema({
   admissionRequirements: [{
     requirementId: { type: Number, required: true },
     name: { type: String, required: true },
-    fileContent: { type: Buffer }, // Store file as binary data
-    fileType: { type: String }, // Store MIME type
-    fileName: { type: String }, // Store original file name
+    fileContent: { type: Buffer },
+    fileType: { type: String },
+    fileName: { type: String },
     status: {
       type: String,
       enum: ['Not Submitted', 'Submitted', 'Verified', 'Waived'],
@@ -130,7 +130,22 @@ const enrolleeApplicantSchema = new mongoose.Schema({
     type: String,
     enum: ['On-going', 'Approved', 'Rejected'],
     default: 'On-going'
-  }
+  },
+  approvedExamDate: { type: Date },
+  approvedExamTime: { type: String },
+  admissionExamDetailsStatus: {
+    type: String,
+    enum: ['Incomplete', 'Complete'],
+    default: 'Incomplete'
+  },
+  admissionRejectMessage: { type: String },
+  approvedExamFeeAmount: { type: Number },
+  approvedExamFeeStatus: {
+    type: String,
+    enum: ['Required', 'Paid', 'Waived'],
+    default: 'Required'
+  },
+  approvedExamRoom: { type: String },
 });
 
 // Password hashing pre-save hook
@@ -152,12 +167,9 @@ enrolleeApplicantSchema.pre('save', async function (next) {
   }
 });
 
-// Update admissionRequirementsStatus pre-save hook
+// Admission requirements status hook
 enrolleeApplicantSchema.pre('save', function (next) {
   if (this.isModified('admissionRequirements') && this.admissionRequirements && this.admissionRequirements.length > 0) {
-    console.log('Evaluating admissionRequirementsStatus...');
-    console.log('Requirements:', JSON.stringify(this.admissionRequirements, null, 2));
-
     const allComplete = this.admissionRequirements.every(req => 
       req.status === 'Verified' || req.status === 'Waived'
     );
@@ -165,23 +177,33 @@ enrolleeApplicantSchema.pre('save', function (next) {
       req.status !== 'Not Submitted'
     );
 
-    console.log('All requirements complete (Verified or Waived):', allComplete);
-    console.log('All requirements addressed (not Not Submitted):', allAddressed);
-
-    this.admissionRequirementsStatus = (allComplete && allAddressed) ? 'Complete' : 'Incomplete';
-
-    console.log('Set admissionRequirementsStatus to:', this.admissionRequirementsStatus);
-
-    if (this.admissionRequirementsStatus === 'Complete' && this.isModified('admissionRequirementsStatus')) {
-      this.admissionAdminFirstStatus = 'On-going';
-      console.log('Set admissionAdminFirstStatus to: On-going');
+    if (allComplete && allAddressed) {
+      this.admissionRequirementsStatus = 'Complete';
+      if (this.isModified('admissionRequirementsStatus')) {
+        this.admissionAdminFirstStatus = 'On-going';
+      }
+    } else if (this.admissionRequirementsStatus !== 'Complete') {
+      this.admissionRequirementsStatus = 'Incomplete';
     }
-  } else {
+  } else if (this.isNew && (!this.admissionRequirements || this.admissionRequirements.length === 0)) {
     this.admissionRequirementsStatus = 'Incomplete';
-    console.log('No requirements or not modified, set admissionRequirementsStatus to: Incomplete');
   }
   next();
 });
+
+// Method to check if OTP is valid
+enrolleeApplicantSchema.methods.isOtpValid = function () {
+  return this.otp && this.otpExpires && this.otpExpires > Date.now();
+};
+
+// Method to get temporary password
+enrolleeApplicantSchema.methods.getPlainPassword = async function () {
+  const user = await this.model('EnrolleeApplicant')
+    .findById(this._id)
+    .select('+temporaryPassword')
+    .exec();
+  return user.temporaryPassword;
+};
 
 // Method to check if OTP is valid
 enrolleeApplicantSchema.methods.isOtpValid = function () {
