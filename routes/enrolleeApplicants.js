@@ -314,7 +314,6 @@ router.get('/check-email/:email', async (req, res) => {
   }
 });
 
-// Updated Route to fetch all personal details with logging
 router.get('/personal-details/:email', async (req, res) => {
   try {
     const { email } = req.params;
@@ -385,8 +384,9 @@ router.get('/personal-details/:email', async (req, res) => {
       applicantID: applicant.applicantID,
       registrationStatus: applicant.registrationStatus,
       dob: applicant.dob,
+      // Add admissionAdminFirstStatus
+      admissionAdminFirstStatus: applicant.admissionAdminFirstStatus || 'On-going',
     };
-    console.log('Fetched applicantData:', applicant);
 
     console.log(`Personal details fetched for ${cleanEmail}:`, responseData);
 
@@ -1352,7 +1352,61 @@ router.post('/save-exam-interview', async (req, res) => {
   }
 });
 
-// Fetch admission requirements
+router.get('/exam-details/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const cleanEmail = email.trim().toLowerCase();
+    console.log(`Received request for exam-details with email: ${cleanEmail}`);
+
+    const applicant = await EnrolleeApplicant.findOne({
+      email: cleanEmail,
+      status: 'Active',
+    }).sort({ createdAt: -1 });
+
+    console.log('Applicant query result:', applicant ? `Found (ID: ${applicant._id})` : 'Not found');
+
+    if (!applicant) {
+      console.log(`No active applicant found for email: ${cleanEmail}`);
+      const otherStatus = await EnrolleeApplicant.findOne({ email: cleanEmail });
+      return res.status(404).json({
+        error: 'Active applicant not found',
+        details: otherStatus
+          ? `Applicant found with status: ${otherStatus.status}`
+          : 'No applicant record exists for this email',
+      });
+    }
+
+    if (!applicant.approvedExamDate && applicant.admissionAdminFirstStatus === 'On-going') {
+      console.log('Exam details not yet assigned for applicant:', applicant._id);
+      return res.status(200).json({
+        admissionAdminFirstStatus: applicant.admissionAdminFirstStatus,
+        admissionExamDetailsStatus: applicant.admissionExamDetailsStatus || 'Incomplete',
+        message: 'Exam details are not yet assigned. Application is under review.',
+      });
+    }
+
+    console.log('Returning exam details:', {
+      admissionAdminFirstStatus: applicant.admissionAdminFirstStatus,
+      approvedExamDate: applicant.approvedExamDate,
+      admissionExamDetailsStatus: applicant.admissionExamDetailsStatus,
+    });
+
+    res.status(200).json({
+      admissionAdminFirstStatus: applicant.admissionAdminFirstStatus || 'On-going',
+      approvedExamDate: applicant.approvedExamDate,
+      approvedExamTime: applicant.approvedExamTime,
+      admissionExamDetailsStatus: applicant.admissionExamDetailsStatus || 'Incomplete',
+      admissionRejectMessage: applicant.admissionRejectMessage || '',
+      approvedExamFeeAmount: applicant.approvedExamFeeAmount,
+      approvedExamFeeStatus: applicant.approvedExamFeeStatus || 'Required',
+      approvedExamRoom: applicant.approvedExamRoom,
+    });
+  } catch (err) {
+    console.error('Error fetching exam details:', err.message, err.stack);
+    res.status(500).json({ error: 'Server error while fetching exam details' });
+  }
+});
+
 router.get('/admission-requirements/:email', async (req, res) => {
   try {
     const { email } = req.params;
@@ -1362,7 +1416,15 @@ router.get('/admission-requirements/:email', async (req, res) => {
     }
     res.status(200).json({
       admissionRequirements: applicant.admissionRequirements,
-      admissionRequirementsStatus: applicant.admissionRequirementsStatus
+      admissionRequirementsStatus: applicant.admissionRequirementsStatus,
+      admissionAdminFirstStatus: applicant.admissionAdminFirstStatus || 'On-going',
+      approvedExamDate: applicant.approvedExamDate,
+      approvedExamTime: applicant.approvedExamTime,
+      admissionExamDetailsStatus: applicant.admissionExamDetailsStatus || 'Incomplete',
+      admissionRejectMessage: applicant.admissionRejectMessage || '',
+      approvedExamFeeAmount: applicant.approvedExamFeeAmount,
+      approvedExamFeeStatus: applicant.approvedExamFeeStatus || 'Required',
+      approvedExamRoom: applicant.approvedExamRoom,
     });
   } catch (err) {
     console.error('Error fetching admission requirements:', err);

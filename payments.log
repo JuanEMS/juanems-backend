@@ -1,0 +1,25 @@
+Creating link: {
+  "data": {
+    "attributes": {
+      "amount": 50000,
+      "currency": "PHP",
+      "description": "Exam Fee Payment for 2025-000019",
+      "remarks": "REF-1746710542477-319774"
+    }
+  }
+}
+PayMongo response: Status 200, Body {"data":{"id":"link_RwbjoNq7Ef6Us2BHCJvNzAeA","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":0,"remarks":"REF-1746710542477-319774","status":"unpaid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/H45MHbj","reference_number":"H45MHbj","created_at":1746710547,"updated_at":1746710547,"payments":[]}}}
+Payment history saved: {
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "pending",
+  "referenceNumber": "REF-1746710542477-319774",
+  "checkoutId": "link_RwbjoNq7Ef6Us2BHCJvNzAeA",
+  "_id": "681cb00fe77ef59acdd7af64",
+  "createdAt": "2025-05-08T13:22:23.018Z",
+  "updatedAt": "2025-05-08T13:22:23.021Z",
+  "__v": 0
+}

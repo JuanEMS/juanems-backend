@@ -3,6 +3,8 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const enrolleeApplicantsRoute = require('./routes/enrolleeApplicants');
 const pdfRoutes = require('./routes/pdfRoutes');
+const paymentRoutes = require('./routes/payments');
+
 const accountRoutes = require('./routes/accountRoutes');
 const subjectRoutes = require('./routes/subjectRoutes');
 const sectionRoutes = require('./routes/sectionRoutes');
@@ -13,6 +15,7 @@ const exportFile = require('./routes/exportFile');
 const announcementRoutes = require('./routes/announcementRoutes');
 const connectDB = require('./config/db');
 require('dotenv').config();
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,6 +39,10 @@ mongoose.connection.on('connected', async () => {
         }
     }
 });
+
+// Middleware for webhook raw body
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+app.use(express.json());
 
 // Test database connection
 app.get("/api/test-db", async (req, res) => {
@@ -93,6 +100,7 @@ app.use('/api/dropdown', require('./routes/dropdownRoutes'));
 app.use('/api/enrollee-applicants', enrolleeApplicantsRoute);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api', pdfRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Admin Routes
 app.use('/api/admin', accountRoutes);
@@ -107,6 +115,21 @@ app.use('/api/admin/system-logs', systemLogRoutes);
 app.get("/api/test", (req, res) => {
     res.json({ message: "Backend is working" });
 });
+
+// Payment redirect endpoints (for PayMongo)
+app.get('/payment/success', async (req, res) => {
+    const { email } = req.query;
+    res.redirect(`${process.env.FRONTEND_URL}/scope-exam-fee-payment?email=${encodeURIComponent(email)}&status=success`);
+  });
+  
+  app.get('/payment/failed', async (req, res) => {
+    const { email } = req.query;
+    res.redirect(`${process.env.FRONTEND_URL}/scope-exam-fee-payment?email=${encodeURIComponent(email)}&status=failed`);
+  });
+  
+  app.get('/payment/processing', async (req, res) => {
+    res.send('Payment is being processed. You will be redirected shortly.');
+  });
 
 // Start server after DB connection
 async function startServer() {
@@ -127,3 +150,4 @@ process.on('unhandledRejection', (err) => {
     console.error(err.name, err.message);
     process.exit(1);
 });
+

@@ -130,7 +130,22 @@ const enrolleeApplicantSchema = new mongoose.Schema({
     type: String,
     enum: ['On-going', 'Approved', 'Rejected'],
     default: 'On-going'
-  }
+  },
+  approvedExamDate: { type: Date },
+  approvedExamTime: { type: String },
+  admissionExamDetailsStatus: {
+    type: String,
+    enum: ['Incomplete', 'Complete'],
+    default: 'Incomplete'
+  },
+  admissionRejectMessage: { type: String },
+  approvedExamFeeAmount: { type: Number },
+  approvedExamFeeStatus: {
+    type: String,
+    enum: ['Required', 'Paid', 'Waived'],
+    default: 'Required'
+  },
+  approvedExamRoom: { type: String },
 });
 
 // Password hashing pre-save hook
@@ -152,7 +167,7 @@ enrolleeApplicantSchema.pre('save', async function (next) {
   }
 });
 
-// Update admissionRequirementsStatus pre-save hook
+// Admission requirements status hook
 enrolleeApplicantSchema.pre('save', function (next) {
   if (this.isModified('admissionRequirements') && this.admissionRequirements && this.admissionRequirements.length > 0) {
     const allComplete = this.admissionRequirements.every(req => 
@@ -175,6 +190,20 @@ enrolleeApplicantSchema.pre('save', function (next) {
   }
   next();
 });
+
+// Method to check if OTP is valid
+enrolleeApplicantSchema.methods.isOtpValid = function () {
+  return this.otp && this.otpExpires && this.otpExpires > Date.now();
+};
+
+// Method to get temporary password
+enrolleeApplicantSchema.methods.getPlainPassword = async function () {
+  const user = await this.model('EnrolleeApplicant')
+    .findById(this._id)
+    .select('+temporaryPassword')
+    .exec();
+  return user.temporaryPassword;
+};
 
 // Method to check if OTP is valid
 enrolleeApplicantSchema.methods.isOtpValid = function () {
