@@ -31,7 +31,7 @@ router.get('/accounts', async (req, res) => {
     }));    
 
     const accountColumns = [
-      { label: '#', property: '__rowNumber', width: 45 },
+      { label: '#', property: '__rowNumber', width: 40 },
       { label: 'User ID', property: 'userID', width: 100 },
       { label: 'Name', property: 'fullName', width: 120 }, 
       { label: 'Email', property: 'email', width: 190 },
@@ -74,14 +74,14 @@ router.get('/subjects', async (req, res) => {
 
     // Define columns specific to subjects
     const subjectColumns = [
-      { label: '#', property: '__rowNumber', width: 25 },
+      { label: '#', property: '__rowNumber', width: 40 },
       { label: 'Subject ID', property: 'subjectID', width: 70 },
       { label: 'Code', property: 'subjectCode', width: 60 },
       { label: 'Name', property: 'subjectName', width: 100 },
-      { label: 'WW', property: 'writtenWork', width: 30 },
+      { label: 'WW', property: 'writtenWork', width: 35 },
       { label: 'PT', property: 'performanceTask', width: 30 },
       { label: 'QA', property: 'quarterlyAssessment', width: 30 },
-      { label: 'Classification', property: 'classification', width: 85 },
+      { label: 'Classification', property: 'classification', width: 80 },
       { label: 'Strand', property: 'strand', width: 50 },
       { label: 'Term', property: 'term', width: 40 },
       { label: 'Grade Level', property: 'gradeLevel', width: 70 },
@@ -122,7 +122,7 @@ router.get('/sections', async (req, res) => {
     }));
 
     const sectionColumns = [
-      { label: '#', property: '__rowNumber', width: 25 },
+      { label: '#', property: '__rowNumber', width: 40 },
       { label: 'Section Name', property: 'sectionName', width: 100 },
       { label: 'Grade Level', property: 'gradeLevel', width: 70 },
       { label: 'Strand', property: 'strand', width: 80 },
@@ -162,7 +162,7 @@ router.get('/strands', async (req, res) => {
     }));
 
     const strandColumns = [
-      { label: '#', property: '__rowNumber', width: 25 },
+      { label: '#', property: '__rowNumber', width: 40 },
       { label: 'Strand Code', property: 'strandCode', width: 80 },
       { label: 'Strand Name', property: 'strandName', width: 150 },
       { label: 'Status', property: 'status', width: 60 },
@@ -207,7 +207,7 @@ router.get('/system-logs', async (req, res) => {
     }));
 
     const logColumns = [
-      { label: '#', property: '__rowNumber', width: 25 },
+      { label: '#', property: '__rowNumber', width: 40 },
       { label: 'User ID', property: 'userID', width: 80 },
       { label: 'Account Name', property: 'accountName', width: 100 },
       { label: 'Role', property: 'role', width: 80 },
