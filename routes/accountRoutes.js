@@ -43,6 +43,7 @@ router.post('/create-account', async (req, res) => {
       customModules
     } = req.body;
 
+    // Generate password in the backend
     const plainPassword = generateRandomPassword();
     
     // Generate or use provided userID
@@ -499,7 +500,7 @@ router.post('/login', async (req, res) => {
     if (!account) {
       console.log(`Login attempt for non-existent email: ${cleanEmail}`);
       return res.status(404).json({
-        message: 'Account not found',
+        message: 'The email or password is incorrect.',
         errorType: 'account_not_found'
       });
     }
@@ -771,53 +772,49 @@ router.put('/accounts/:id', async (req, res) => {
     const updates = req.body;
     const { userID, email, mobile } = updates;
 
+    // Check if the account exists first
+    const existingAccount = await Accounts.findById(req.params.id);
+    if (!existingAccount) {
+      return res.status(404).json({ message: 'Account not found.' });
+    }
+
     // Check if the userID, email, or mobile already exists in another account
-    if (userID) {
+    if (userID && userID !== existingAccount.userID) {
       const userIDExists = await Accounts.findOne({ userID });
       if (userIDExists && userIDExists._id.toString() !== req.params.id) {
         return res.status(409).json({ message: 'User ID already exists.' });
       }
     }
 
-    if (email) {
+    if (email && email !== existingAccount.email) {
       const emailExists = await Accounts.findOne({ email });
       if (emailExists && emailExists._id.toString() !== req.params.id) {
         return res.status(409).json({ message: 'Email already exists.' });
       }
     }
 
-    if (mobile) {
+    if (mobile && mobile !== existingAccount.mobile) {
       const mobileExists = await Accounts.findOne({ mobile });
       if (mobileExists && mobileExists._id.toString() !== req.params.id) {
         return res.status(409).json({ message: 'Mobile number already exists.' });
       }
     }
 
-    // If password is being updated, fetch-save to trigger pre-save hook
-    if (updates.password) {
-      const account = await Accounts.findById(req.params.id);
-      if (!account) {
-        return res.status(404).json({ message: 'Account not found.' });
-      }
-      Object.assign(account, updates);
-      await account.save();
-      return res.status(200).json({ message: 'Account updated successfully.', data: account });
-    }
+    // Important: Do not allow password to be updated via normal update
+    // Remove password from the updates object
+    delete updates.password;
+    delete updates.temporaryPassword;
 
-    // For other fields
-    const account = await Accounts.findByIdAndUpdate(
+    // Update the account
+    const updatedAccount = await Accounts.findByIdAndUpdate(
       req.params.id,
       updates,
       { new: true, runValidators: true }
     );
 
-    if (!account) {
-      return res.status(404).json({ message: 'Account not found.' });
-    }
-
     res.status(200).json({
       message: 'Account updated successfully.',
-      data: account
+      data: updatedAccount
     });
   } catch (error) {
     console.error('Update account error:', error);
