@@ -4,18 +4,16 @@ const mongoose = require("mongoose");
 const enrolleeApplicantsRoute = require('./routes/enrolleeApplicants');
 const pdfRoutes = require('./routes/pdfRoutes');
 const paymentRoutes = require('./routes/payments');
-
 const accountRoutes = require('./routes/accountRoutes');
 const subjectRoutes = require('./routes/subjectRoutes');
 const sectionRoutes = require('./routes/sectionRoutes');
-const strandRoutes = require('./routes/strandRoutes'); 
-const roleRoutes = require('./routes/rolesRoutes'); 
-const systemLogRoutes = require('./routes/systemLogRoutes'); 
+const strandRoutes = require('./routes/strandRoutes');
+const roleRoutes = require('./routes/rolesRoutes');
+const systemLogRoutes = require('./routes/systemLogRoutes');
 const exportFile = require('./routes/exportFile');
 const announcementRoutes = require('./routes/announcementRoutes');
 const connectDB = require('./config/db');
 require('dotenv').config();
-
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -24,7 +22,10 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({
     origin: ['http://localhost:3000', 'https://juanems-web-frontend.onrender.com', 'https://juanems-user-frontend.vercel.app'],
 }));
+
+// Parse JSON and URL-encoded bodies
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Drop email_1 index if exists
 mongoose.connection.on('connected', async () => {
@@ -39,10 +40,6 @@ mongoose.connection.on('connected', async () => {
         }
     }
 });
-
-// Middleware for webhook raw body
-app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
-app.use(express.json());
 
 // Test database connection
 app.get("/api/test-db", async (req, res) => {
@@ -120,16 +117,16 @@ app.get("/api/test", (req, res) => {
 app.get('/payment/success', async (req, res) => {
     const { email } = req.query;
     res.redirect(`${process.env.FRONTEND_URL}/scope-exam-fee-payment?email=${encodeURIComponent(email)}&status=success`);
-  });
-  
-  app.get('/payment/failed', async (req, res) => {
+});
+
+app.get('/payment/failed', async (req, res) => {
     const { email } = req.query;
     res.redirect(`${process.env.FRONTEND_URL}/scope-exam-fee-payment?email=${encodeURIComponent(email)}&status=failed`);
-  });
-  
-  app.get('/payment/processing', async (req, res) => {
+});
+
+app.get('/payment/processing', async (req, res) => {
     res.send('Payment is being processed. You will be redirected shortly.');
-  });
+});
 
 // Start server after DB connection
 async function startServer() {
@@ -150,4 +147,3 @@ process.on('unhandledRejection', (err) => {
     console.error(err.name, err.message);
     process.exit(1);
 });
-

@@ -241,4 +241,186 @@ router.post('/generate-waiver-pdf', (req, res) => {
   }
 });
 
+router.post('/generate-exam-permit', (req, res) => {
+  try {
+    const { userData, examDetails, paymentDetails } = req.body;
+
+    // Validate request body
+    if (!userData || !examDetails) {
+      return res.status(400).json({ error: 'Missing required data: userData and examDetails are required' });
+    }
+    if (!userData.firstName || !userData.lastName || !userData.applicantID) {
+      return res.status(400).json({ error: 'Missing required userData fields: firstName, lastName, applicantID' });
+    }
+    if (!examDetails.approvedExamDate || !examDetails.approvedExamTime || !examDetails.approvedExamFeeStatus) {
+      return res.status(400).json({ error: 'Missing required examDetails fields: approvedExamDate, approvedExamTime, approvedExamFeeStatus' });
+    }
+    if (examDetails.approvedExamFeeStatus === 'Paid' && (!paymentDetails || !paymentDetails.referenceNumber || !paymentDetails.amount)) {
+      return res.status(400).json({ error: 'Missing required paymentDetails fields for Paid status: referenceNumber, amount' });
+    }
+
+    // Initialize PDF document
+    const doc = new PDFDocument({
+      margin: 50,
+      size: 'A4',
+      info: {
+        Title: 'Admission Exam Permit',
+        Author: 'San Juan De Dios Educational Foundation, Inc.',
+        Creator: 'JuanEMS System',
+      },
+    });
+
+    // Set response headers
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=Admission_Exam_Permit_${userData.applicantID || 'unknown'}.pdf`,
+    });
+
+    // Pipe PDF directly to response
+    doc.pipe(res);
+
+    // Document dimensions
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+    const margin = doc.page.margins.left;
+    const contentWidth = pageWidth - 2 * margin;
+
+    // Safe date parsing
+    const currentTime = moment().tz('Asia/Manila').format('MMMM D, YYYY, h:mm A');
+    const examDate = examDetails.approvedExamDate && moment(examDetails.approvedExamDate).isValid()
+      ? moment(examDetails.approvedExamDate).tz('Asia/Manila').format('MMMM D, YYYY')
+      : 'N/A';
+    const examTime = examDetails.approvedExamTime || 'N/A';
+    const paymentDate = paymentDetails?.createdAt && moment(paymentDetails.createdAt).isValid()
+      ? moment(paymentDetails.createdAt).tz('Asia/Manila').format('MMMM D, YYYY, h:mm A')
+      : 'N/A';
+
+    // Header
+    doc.fillColor('#00245A').rect(0, 0, pageWidth, 80).fill();
+    if (fs.existsSync(SchoolLogoPath)) {
+      try {
+        doc.image(SchoolLogoPath, margin, 20, { width: 50, height: 50 });
+      } catch (imgError) {
+        console.error('Error loading logo:', imgError.message);
+      }
+    }
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(14)
+      .fillColor('white')
+      .text('San Juan De Dios Educational Foundation, Inc.', margin + 60, 25, { width: contentWidth - 60 });
+    doc
+      .font('Helvetica')
+      .fontSize(10)
+      .fillColor('#DDDDDD')
+      .text('Where faith and reason are expressed in Charity.', margin + 60, 45, { width: contentWidth - 60 });
+
+    // Title
+    let y = 100;
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(18)
+      .fillColor('black')
+      .text('Admission Exam Permit', margin, y, { align: 'center' });
+    y += 30;
+
+    // Generated Date
+    doc
+      .font('Helvetica')
+      .fontSize(10)
+      .fillColor('#444444')
+      .text(`Generated on: ${currentTime}`, margin, y, { align: 'right', width: contentWidth });
+    y += 20;
+
+    // Applicant Information
+    doc.font('Helvetica-Bold').fontSize(12).text('Applicant Information', margin, y);
+    y += 15;
+    const fullName = `${userData.firstName} ${userData.middleName ? userData.middleName + ' ' : ''}${userData.lastName}`;
+    doc.font('Helvetica').fontSize(10).text(`Name: ${fullName}`, margin, y);
+    y += 12;
+    doc.font('Helvetica').fontSize(10).text(`Applicant ID: ${userData.applicantID || 'N/A'}`, margin, y);
+    y += 12;
+    doc.font('Helvetica').fontSize(10).text(`Academic Year: ${examDetails.academicYear || '2025-2026'}`, margin, y);
+    y += 20;
+
+    // Exam Details
+    doc.font('Helvetica-Bold').fontSize(12).text('Exam Details', margin, y);
+    y += 15;
+    doc.font('Helvetica').fontSize(10).text(`Date: ${examDate}`, margin, y);
+    y += 12;
+    doc.font('Helvetica').fontSize(10).text(`Time: ${examTime}`, margin, y);
+    y += 12;
+    doc.font('Helvetica').fontSize(10).text(`Room: ${examDetails.approvedExamRoom || 'N/A'}`, margin, y);
+    y += 12;
+    doc.font('Helvetica').fontSize(10).text(`Exam Fee Status: ${examDetails.approvedExamFeeStatus || 'N/A'}`, margin, y);
+    y += 12;
+    doc.font('Helvetica').fontSize(10).text(
+      `Exam Fee Amount: ${examDetails.approvedExamFeeAmount != null ? `₱${examDetails.approvedExamFeeAmount.toFixed(2)}` : 'N/A'}`,
+      margin,
+      y
+    );
+    y += 20;
+
+    // Payment Details (if applicable)
+    if (examDetails.approvedExamFeeStatus === 'Paid' && paymentDetails) {
+      doc.font('Helvetica-Bold').fontSize(12).text('Payment Details', margin, y);
+      y += 15;
+      doc.font('Helvetica').fontSize(10).text(`Reference Number: ${paymentDetails.referenceNumber || 'N/A'}`, margin, y);
+      y += 12;
+      doc.font('Helvetica').fontSize(10).text(
+        `Payment Method: ${paymentDetails.paymentMethod ? paymentDetails.paymentMethod.charAt(0).toUpperCase() + paymentDetails.paymentMethod.slice(1) : 'N/A'}`,
+        margin,
+        y
+      );
+      y += 12;
+      doc.font('Helvetica').fontSize(10).text(
+        `Amount Paid: ${paymentDetails.amount != null ? `₱${paymentDetails.amount.toFixed(2)}` : 'N/A'}`,
+        margin,
+        y
+      );
+      y += 12;
+      doc.font('Helvetica').fontSize(10).text(`Payment Date: ${paymentDate || 'N/A'}`, margin, y);
+      y += 12;
+      doc.font('Helvetica').fontSize(10).text(
+        `Status: ${paymentDetails.status ? paymentDetails.status.charAt(0).toUpperCase() + paymentDetails.status.slice(1) : 'N/A'}`,
+        margin,
+        y
+      );
+      y += 20;
+    }
+
+    // Instructions
+    doc.font('Helvetica-Bold').fontSize(12).text('Instructions', margin, y);
+    y += 15;
+    const instructions = [
+      '1. Bring this permit on the day of the exam.',
+      '2. Arrive at least 30 minutes before the scheduled time.',
+      '3. Present a valid ID along with this permit.',
+      '4. No permit, no exam policy is strictly enforced.',
+      '5. Contact the Admissions Office for any concerns.',
+    ];
+    instructions.forEach((instruction) => {
+      doc.font('Helvetica').fontSize(10).text(instruction, margin, y, { width: contentWidth });
+      y += 15;
+    });
+
+    // Footer
+    doc
+      .font('Helvetica')
+      .fontSize(8)
+      .fillColor('#990000')
+      .text(
+        'San Juan De Dios Educational Foundation, Inc. © 2025',
+        margin,
+        pageHeight - 30,
+        { align: 'center', width: contentWidth }
+      );
+
+    doc.end();
+  } catch (error) {
+    console.error('Error generating exam permit PDF:', error.message, error.stack);
+    res.status(500).json({ error: `Failed to generate exam permit PDF: ${error.message}` });
+  }
+});
+
 module.exports = router;

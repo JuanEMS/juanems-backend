@@ -3,27 +3,19 @@ const router = express.Router();
 const EnrolleeApplicant = require('../models/EnrolleeApplicant');
 const PaymentHistory = require('../models/PaymentHistory');
 const sanitizeString = require('../utils/sanitizeString');
-const crypto = require('crypto');
 const fs = require('fs');
 
-// PayMongo API base URL
 const PAYMONGO_API_URL = 'https://api.paymongo.com/v1';
-
-// PayMongo Secret Key and Webhook Secret
 const PAYMONGO_SECRET_KEY = process.env.PAYMONGO_SECRET_KEY;
-const PAYMONGO_WEBHOOK_SECRET = process.env.PAYMONGO_WEBHOOK_SECRET;
 
-// Helper function to generate a unique reference number
 const generateReferenceNumber = () => {
   return `REF-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
 };
 
-// POST /api/payments/create-checkout
 router.post('/create-checkout', async (req, res) => {
   try {
     const { email, amount } = req.body;
 
-    // Validate inputs
     if (!sanitizeString(email)) {
       return res.status(400).json({ error: 'Valid email is required' });
     }
@@ -31,7 +23,6 @@ router.post('/create-checkout', async (req, res) => {
       return res.status(400).json({ error: 'Valid amount is required' });
     }
 
-    // Find applicant
     const applicant = await EnrolleeApplicant.findOne({
       email: email.toLowerCase(),
       status: 'Active',
@@ -46,14 +37,22 @@ router.post('/create-checkout', async (req, res) => {
       return res.status(400).json({ error: 'Amount does not match approved exam fee' });
     }
 
-    // Generate reference number
+    // Check for existing pending payments
+    const existingPayment = await PaymentHistory.findOne({
+      email: email.toLowerCase(),
+      status: 'pending',
+    });
+    if (existingPayment) {
+      return res.status(400).json({ error: 'A pending payment already exists. Please complete or cancel it.' });
+    }
+
+    const applicantName = `${applicant.firstName} ${applicant.middleName ? applicant.middleName + ' ' : ''}${applicant.lastName}`;
     const referenceNumber = generateReferenceNumber();
 
-    // Create PayMongo Link
     const linkData = {
       data: {
         attributes: {
-          amount: Math.round(amount * 100), // Convert to centavos
+          amount: Math.round(amount * 100),
           currency: 'PHP',
           description: `Exam Fee Payment for ${applicant.applicantID}`,
           remarks: referenceNumber,
@@ -79,20 +78,28 @@ router.post('/create-checkout', async (req, res) => {
     fs.appendFileSync('payments.log', `PayMongo response: Status ${response.status}, Body ${responseBody}\n`);
 
     if (!response.ok) {
-      const errorData = JSON.parse(responseBody);
-      throw new Error(`PayMongo error: ${JSON.stringify(errorData.errors)}`);
+      let errorMessage = 'Failed to create payment link';
+      try {
+        const errorData = JSON.parse(responseBody);
+        errorMessage = errorData.errors.map(err => err.detail).join('; ');
+      } catch (e) {
+        errorMessage = responseBody || errorMessage;
+      }
+      throw new Error(`PayMongo error: ${errorMessage}`);
     }
 
     const link = JSON.parse(responseBody);
     const checkoutUrl = link.data.attributes.checkout_url;
     const linkId = link.data.id;
 
-    // Save payment history
+    // Save payment history with pending status
     const paymentHistory = new PaymentHistory({
       applicantID: applicant.applicantID,
       email: applicant.email,
+      applicantName,
       paymentMethod: 'link',
       amount,
+      description: 'Exam Fee Payment',
       referenceNumber,
       checkoutId: linkId,
       status: 'pending',
@@ -114,12 +121,10 @@ router.post('/create-checkout', async (req, res) => {
   }
 });
 
-// POST /api/payments/verify-payment
 router.post('/verify-payment', async (req, res) => {
   try {
     const { email, checkoutId } = req.body;
 
-    // Validate inputs
     if (!sanitizeString(email)) {
       return res.status(400).json({ error: 'Valid email is required' });
     }
@@ -128,7 +133,7 @@ router.post('/verify-payment', async (req, res) => {
     }
 
     // Find payment history
-    const paymentHistory = await PaymentHistory.findOne({ checkoutId, email: email.toLowerCase() });
+    let paymentHistory = await PaymentHistory.findOne({ checkoutId, email: email.toLowerCase() });
     if (!paymentHistory) {
       return res.status(404).json({ error: 'Payment record not found' });
     }
@@ -147,14 +152,20 @@ router.post('/verify-payment', async (req, res) => {
     fs.appendFileSync('payments.log', `Verify response: Status ${response.status}, Body ${responseBody}\n`);
 
     if (!response.ok) {
-      const errorData = JSON.parse(responseBody);
-      throw new Error(`PayMongo error: ${JSON.stringify(errorData.errors)}`);
+      let errorMessage = 'Failed to verify payment';
+      try {
+        const errorData = JSON.parse(responseBody);
+        errorMessage = errorData.errors.map(err => err.detail).join('; ');
+      } catch (e) {
+        errorMessage = responseBody || errorMessage;
+      }
+      throw new Error(`PayMongo error: ${errorMessage}`);
     }
 
     const link = JSON.parse(responseBody);
     const paymentStatus = link.data.attributes.status;
 
-    // Update payment history
+    // Update payment history based on PayMongo status
     if (paymentStatus === 'paid') {
       paymentHistory.status = 'successful';
       paymentHistory.paymentId = link.data.attributes.payments[0]?.id || '';
@@ -171,9 +182,19 @@ router.post('/verify-payment', async (req, res) => {
         await applicant.save();
         console.log('Applicant updated:', applicant.email, applicant.approvedExamFeeStatus);
         fs.appendFileSync('payments.log', `Applicant updated: ${applicant.email}, Status: Paid\n`);
+      } else {
+        console.warn('Applicant not found for email:', paymentHistory.email);
+        fs.appendFileSync('payments.log', `Warning: Applicant not found for email: ${paymentHistory.email}\n`);
       }
     } else if (paymentStatus === 'unpaid') {
-      paymentHistory.status = 'pending';
+      // Mark as cancelled if no payment attempt was made
+      paymentHistory.status = 'cancelled';
+      paymentHistory.updatedAt = Date.now();
+    } else if (paymentStatus === 'expired') {
+      paymentHistory.status = 'expired';
+      paymentHistory.updatedAt = Date.now();
+    } else {
+      paymentHistory.status = 'failed';
       paymentHistory.updatedAt = Date.now();
     }
 
@@ -194,23 +215,19 @@ router.post('/verify-payment', async (req, res) => {
   }
 });
 
-// GET /api/payments/status/:checkoutId
 router.get('/status/:checkoutId', async (req, res) => {
   try {
     const { checkoutId } = req.params;
 
-    // Validate input
     if (!sanitizeString(checkoutId)) {
       return res.status(400).json({ error: 'Valid checkout ID is required' });
     }
 
-    // Find payment history
     const paymentHistory = await PaymentHistory.findOne({ checkoutId });
     if (!paymentHistory) {
       return res.status(404).json({ error: 'Payment record not found' });
     }
 
-    // Check PayMongo status
     const response = await fetch(`${PAYMONGO_API_URL}/links/${checkoutId}`, {
       method: 'GET',
       headers: {
@@ -224,8 +241,14 @@ router.get('/status/:checkoutId', async (req, res) => {
     fs.appendFileSync('payments.log', `Status check response: Status ${response.status}, Body ${responseBody}\n`);
 
     if (!response.ok) {
-      const errorData = JSON.parse(responseBody);
-      throw new Error(`PayMongo error: ${JSON.stringify(errorData.errors)}`);
+      let errorMessage = 'Failed to check payment status';
+      try {
+        const errorData = JSON.parse(responseBody);
+        errorMessage = errorData.errors.map(err => err.detail).join('; ');
+      } catch (e) {
+        errorMessage = responseBody || errorMessage;
+      }
+      throw new Error(`PayMongo error: ${errorMessage}`);
     }
 
     const link = JSON.parse(responseBody);
@@ -243,115 +266,6 @@ router.get('/status/:checkoutId', async (req, res) => {
     console.error('Error checking payment status:', err.message, err.stack);
     fs.appendFileSync('payments.log', `Error checking payment status: ${err.message}\n`);
     res.status(500).json({ error: `Failed to check payment status: ${err.message}` });
-  }
-});
-
-// POST /api/payments/webhook
-router.post('/webhook', async (req, res) => {
-  try {
-    // Log raw request body for debugging
-    const rawBody = req.body.toString();
-    console.log('Raw webhook body:', rawBody);
-    fs.appendFileSync('payments.log', `Raw webhook body: ${rawBody}\n`);
-
-    // Verify webhook signature
-    const signature = req.headers['paymongo-signature'];
-    if (!signature) {
-      console.error('Webhook signature missing');
-      fs.appendFileSync('payments.log', `Webhook error: Signature missing, Headers: ${JSON.stringify(req.headers)}\n`);
-      return res.status(401).json({ error: 'Webhook signature missing' });
-    }
-
-    console.log('PayMongo signature header:', signature);
-    fs.appendFileSync('payments.log', `PayMongo signature header: ${signature}\n`);
-
-    const [t, sig] = signature.split(',');
-    const timestamp = t.split('t=')[1];
-    const signatureValue = sig.split('s=')[1];
-
-    console.log('Timestamp:', timestamp, 'Signature:', signatureValue);
-    fs.appendFileSync('payments.log', `Timestamp: ${timestamp}, Signature: ${signatureValue}\n`);
-
-    const hmac = crypto
-      .createHmac('sha256', PAYMONGO_WEBHOOK_SECRET)
-      .update(`${timestamp}.${rawBody}`)
-      .digest('hex');
-
-    console.log('Computed HMAC:', hmac);
-    fs.appendFileSync('payments.log', `Computed HMAC: ${hmac}, Webhook Secret: ${PAYMONGO_WEBHOOK_SECRET}\n`);
-
-    if (hmac !== signatureValue) {
-      console.error('Invalid webhook signature');
-      fs.appendFileSync(
-        'payments.log',
-        `Webhook error: Invalid signature, Received: ${signatureValue}, Computed: ${hmac}, Timestamp: ${timestamp}, Payload: ${rawBody}\n`
-      );
-      return res.status(401).json({ error: 'Invalid webhook signature' });
-    }
-
-    const data = JSON.parse(rawBody);
-    console.log('Received PayMongo webhook:', JSON.stringify(data, null, 2));
-    fs.appendFileSync('payments.log', `Webhook received: ${JSON.stringify(data, null, 2)}\n`);
-
-    if (!data || !data.data || !data.data.attributes) {
-      fs.appendFileSync('payments.log', 'Webhook error: Invalid payload\n');
-      return res.status(400).json({ error: 'Invalid webhook payload' });
-    }
-
-    const eventType = data.data.attributes.type;
-    const linkId = data.data.attributes.data.id;
-    const paymentStatus = data.data.attributes.data.attributes.status;
-
-    if (eventType === 'link.payment.paid') {
-      // Find payment history
-      const paymentHistory = await PaymentHistory.findOne({ checkoutId: linkId });
-      if (!paymentHistory) {
-        console.error('Payment history not found for linkId:', linkId);
-        fs.appendFileSync('payments.log', `Webhook error: Payment history not found for linkId: ${linkId}\n`);
-        return res.status(404).json({ error: 'Payment record not found' });
-      }
-
-      // Check if already processed
-      if (paymentHistory.status === 'successful') {
-        console.log('Payment already processed for linkId:', linkId);
-        fs.appendFileSync('payments.log', `Webhook: Payment already processed for linkId: ${linkId}\n`);
-        return res.status(200).json({ received: true });
-      }
-
-      // Update payment history
-      paymentHistory.status = 'successful';
-      paymentHistory.paymentId = data.data.attributes.data.attributes.payments[0]?.id || '';
-      paymentHistory.updatedAt = Date.now();
-
-      // Update applicant status
-      const applicant = await EnrolleeApplicant.findOne({
-        email: paymentHistory.email.toLowerCase(),
-        status: 'Active',
-      });
-      if (applicant) {
-        applicant.approvedExamFeeStatus = 'Paid';
-        applicant.admissionExamDetailsStatus = 'Complete';
-        await applicant.save();
-        console.log('Applicant updated via webhook:', applicant.email, applicant.approvedExamFeeStatus);
-        fs.appendFileSync('payments.log', `Applicant updated via webhook: ${applicant.email}, Status: Paid\n`);
-      } else {
-        console.warn('Applicant not found for email:', paymentHistory.email);
-        fs.appendFileSync('payments.log', `Webhook warning: Applicant not found for email: ${paymentHistory.email}\n`);
-      }
-
-      await paymentHistory.save();
-      console.log('Payment history updated via webhook:', paymentHistory);
-      fs.appendFileSync('payments.log', `Payment successful for ID: ${linkId}\n`);
-    } else {
-      console.log('Webhook event not handled:', eventType);
-      fs.appendFileSync('payments.log', `Webhook event not handled: ${eventType}, Status: ${paymentStatus}\n`);
-    }
-
-    res.status(200).json({ received: true });
-  } catch (err) {
-    console.error('Error processing webhook:', err.message, err.stack);
-    fs.appendFileSync('payments.log', `Webhook error: ${err.message}\n`);
-    res.status(500).json({ error: 'Failed to process webhook' });
   }
 });
 

@@ -11,6 +11,11 @@ const paymentHistorySchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  applicantName: {
+    type: String,
+    required: true,
+    trim: true,
+  },
   paymentMethod: {
     type: String,
     enum: ['link', 'card', 'gcash'],
@@ -26,7 +31,7 @@ const paymentHistorySchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'successful', 'failed', 'expired'],
+    enum: ['pending', 'successful', 'failed', 'expired', 'cancelled'],
     default: 'pending',
   },
   referenceNumber: {
@@ -41,6 +46,10 @@ const paymentHistorySchema = new mongoose.Schema({
   },
   paymentId: {
     type: String,
+  },
+  description: {
+    type: String,
+    default: 'Exam Fee Payment',
   },
   createdAt: {
     type: Date,
