@@ -269,4 +269,25 @@ router.get('/status/:checkoutId', async (req, res) => {
   }
 });
 
+router.get('/history/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    if (!sanitizeString(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+
+    const payments = await PaymentHistory.find({ email: email.toLowerCase() }).sort({ createdAt: -1 });
+
+    if (!payments || payments.length === 0) {
+      return res.status(404).json({ error: 'No payment history found for this email' });
+    }
+
+    res.status(200).json(payments);
+  } catch (err) {
+    console.error('Error fetching payment history:', err.message, err.stack);
+    res.status(500).json({ error: `Failed to fetch payment history: ${err.message}` });
+  }
+});
+
 module.exports = router;

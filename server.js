@@ -98,6 +98,7 @@ app.use('/api/enrollee-applicants', enrolleeApplicantsRoute);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api', pdfRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/pdf', pdfRoutes);
 
 // Admin Routes
 app.use('/api/admin', accountRoutes);

@@ -8,6 +8,7 @@ const moment = require('moment-timezone');
 const SchoolLogoPath = path.join(__dirname, '../assets/SJDEFILogo.png');
 
 router.post('/generate-waiver-pdf', (req, res) => {
+  console.log('Received POST to /generate-waiver-pdf');
   try {
     const { userData, waivedRequirements, academicYear, dateIssued, dateSigned } = req.body;
 
@@ -242,26 +243,18 @@ router.post('/generate-waiver-pdf', (req, res) => {
 });
 
 router.post('/generate-exam-permit', (req, res) => {
+  console.log('Received POST to /generate-exam-permit:', req.body);
   try {
-    const { userData, examDetails, paymentDetails } = req.body;
+    const { userData, examDetails } = req.body;
 
-    // Validate request body
     if (!userData || !examDetails) {
-      return res.status(400).json({ error: 'Missing required data: userData and examDetails are required' });
-    }
-    if (!userData.firstName || !userData.lastName || !userData.applicantID) {
-      return res.status(400).json({ error: 'Missing required userData fields: firstName, lastName, applicantID' });
-    }
-    if (!examDetails.approvedExamDate || !examDetails.approvedExamTime || !examDetails.approvedExamFeeStatus) {
-      return res.status(400).json({ error: 'Missing required examDetails fields: approvedExamDate, approvedExamTime, approvedExamFeeStatus' });
-    }
-    if (examDetails.approvedExamFeeStatus === 'Paid' && (!paymentDetails || !paymentDetails.referenceNumber || !paymentDetails.amount)) {
-      return res.status(400).json({ error: 'Missing required paymentDetails fields for Paid status: referenceNumber, amount' });
+      console.error('Missing required data:', { userData, examDetails });
+      return res.status(400).json({ error: 'Missing required data' });
     }
 
-    // Initialize PDF document
+    // Create PDF document
     const doc = new PDFDocument({
-      margin: 50,
+      margin: 30,
       size: 'A4',
       info: {
         Title: 'Admission Exam Permit',
@@ -270,156 +263,162 @@ router.post('/generate-exam-permit', (req, res) => {
       },
     });
 
-    // Set response headers
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename=Admission_Exam_Permit_${userData.applicantID || 'unknown'}.pdf`,
+    const buffers = [];
+    doc.on('data', (data) => buffers.push(data));
+    doc.on('end', () => {
+      const pdfData = Buffer.concat(buffers);
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename=admission_exam_permit.pdf',
+        'Content-Length': pdfData.length,
+      });
+      res.send(pdfData);
     });
 
-    // Pipe PDF directly to response
-    doc.pipe(res);
-
     // Document dimensions
+    const marginLeft = doc.page.margins.left;
+    const marginRight = doc.page.margins.right;
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
-    const margin = doc.page.margins.left;
-    const contentWidth = pageWidth - 2 * margin;
+    const contentWidth = pageWidth - marginLeft - marginRight;
 
-    // Safe date parsing
+    // Current date and time in Philippine timezone
     const currentTime = moment().tz('Asia/Manila').format('MMMM D, YYYY, h:mm A');
-    const examDate = examDetails.approvedExamDate && moment(examDetails.approvedExamDate).isValid()
-      ? moment(examDetails.approvedExamDate).tz('Asia/Manila').format('MMMM D, YYYY')
-      : 'N/A';
-    const examTime = examDetails.approvedExamTime || 'N/A';
-    const paymentDate = paymentDetails?.createdAt && moment(paymentDetails.createdAt).isValid()
-      ? moment(paymentDetails.createdAt).tz('Asia/Manila').format('MMMM D, YYYY, h:mm A')
-      : 'N/A';
 
-    // Header
-    doc.fillColor('#00245A').rect(0, 0, pageWidth, 80).fill();
+    // Header with school logo
+    const headerHeight = 50;
+    doc.rect(0, 0, pageWidth, headerHeight).fill('#00245A');
+    doc.rect(0, headerHeight, pageWidth, 3).fill('#C68A00');
+
+    const logoSize = 32;
+    const logoY = (headerHeight - logoSize) / 2;
+
     if (fs.existsSync(SchoolLogoPath)) {
-      try {
-        doc.image(SchoolLogoPath, margin, 20, { width: 50, height: 50 });
-      } catch (imgError) {
-        console.error('Error loading logo:', imgError.message);
-      }
+      doc.image(SchoolLogoPath, marginLeft, logoY, { width: logoSize, height: logoSize });
     }
+
+    const textX = marginLeft + logoSize + 6;
     doc
       .font('Helvetica-Bold')
-      .fontSize(14)
-      .fillColor('white')
-      .text('San Juan De Dios Educational Foundation, Inc.', margin + 60, 25, { width: contentWidth - 60 });
+      .fontSize(12)
+      .fillColor('#ffffff')
+      .text('SAN JUAN DE DIOS EDUCATIONAL FOUNDATION, INC.', textX, logoY + 3, {
+        width: contentWidth - textX + marginLeft,
+      });
+
     doc
-      .font('Helvetica')
-      .fontSize(10)
-      .fillColor('#DDDDDD')
-      .text('Where faith and reason are expressed in Charity.', margin + 60, 45, { width: contentWidth - 60 });
+      .font('Helvetica-Oblique')
+      .fontSize(8)
+      .fillColor('#dddddd')
+      .text('Where faith and reason are expressed in Charity.', textX, logoY + 18, {
+        width: contentWidth - textX + marginLeft,
+      });
 
     // Title
-    let y = 100;
+    let y = headerHeight + 20;
     doc
       .font('Helvetica-Bold')
       .fontSize(18)
-      .fillColor('black')
-      .text('Admission Exam Permit', margin, y, { align: 'center' });
+      .fillColor('#000000')
+      .text('Admission Exam Permit', marginLeft, y, { align: 'center', width: contentWidth });
     y += 30;
 
-    // Generated Date
+    // Generated Date and Time
     doc
       .font('Helvetica')
       .fontSize(10)
       .fillColor('#444444')
-      .text(`Generated on: ${currentTime}`, margin, y, { align: 'right', width: contentWidth });
-    y += 20;
-
-    // Applicant Information
-    doc.font('Helvetica-Bold').fontSize(12).text('Applicant Information', margin, y);
-    y += 15;
-    const fullName = `${userData.firstName} ${userData.middleName ? userData.middleName + ' ' : ''}${userData.lastName}`;
-    doc.font('Helvetica').fontSize(10).text(`Name: ${fullName}`, margin, y);
-    y += 12;
-    doc.font('Helvetica').fontSize(10).text(`Applicant ID: ${userData.applicantID || 'N/A'}`, margin, y);
-    y += 12;
-    doc.font('Helvetica').fontSize(10).text(`Academic Year: ${examDetails.academicYear || '2025-2026'}`, margin, y);
+      .text(`Generated on: ${currentTime}`, marginLeft, y, { width: contentWidth });
     y += 20;
 
     // Exam Details
-    doc.font('Helvetica-Bold').fontSize(12).text('Exam Details', margin, y);
-    y += 15;
-    doc.font('Helvetica').fontSize(10).text(`Date: ${examDate}`, margin, y);
-    y += 12;
-    doc.font('Helvetica').fontSize(10).text(`Time: ${examTime}`, margin, y);
-    y += 12;
-    doc.font('Helvetica').fontSize(10).text(`Room: ${examDetails.approvedExamRoom || 'N/A'}`, margin, y);
-    y += 12;
-    doc.font('Helvetica').fontSize(10).text(`Exam Fee Status: ${examDetails.approvedExamFeeStatus || 'N/A'}`, margin, y);
-    y += 12;
-    doc.font('Helvetica').fontSize(10).text(
-      `Exam Fee Amount: ${examDetails.approvedExamFeeAmount != null ? `₱${examDetails.approvedExamFeeAmount.toFixed(2)}` : 'N/A'}`,
-      margin,
-      y
-    );
-    y += 20;
+    const fields = [
+      { label: 'Applicant Name', value: examDetails.applicantName || 'N/A' },
+      { label: 'Applicant ID', value: examDetails.applicantID || 'N/A' },
+      { label: 'Approved Date', value: examDetails.approvedDate || 'N/A' },
+      { label: 'Time', value: examDetails.time || 'N/A' },
+      { label: 'Room', value: examDetails.room || 'N/A' },
+      { label: 'Exam Fee Status', value: examDetails.examFeeStatus || 'N/A' },
+      { label: 'Exam Fee Amount', value: examDetails.examFeeAmount || 'N/A' },
+      { label: 'Reference Number', value: examDetails.referenceNumber || 'N/A' },
+    ];
 
-    // Payment Details (if applicable)
-    if (examDetails.approvedExamFeeStatus === 'Paid' && paymentDetails) {
-      doc.font('Helvetica-Bold').fontSize(12).text('Payment Details', margin, y);
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(12)
+      .fillColor('#000000')
+      .text('Exam Details:', marginLeft, y, { width: contentWidth });
+    y += 15;
+
+    fields.forEach((field) => {
+      // Ensure peso sign is handled correctly for Exam Fee Amount
+      const displayValue = field.label === 'Exam Fee Amount' && field.value !== 'N/A'
+        ? field.value.replace('±', '₱') // Replace incorrect ± with ₱
+        : field.value;
+      doc
+        .font('Helvetica')
+        .fontSize(10)
+        .fillColor('#444444')
+        .text(`${field.label}: ${displayValue}`, marginLeft, y, { width: contentWidth });
       y += 15;
-      doc.font('Helvetica').fontSize(10).text(`Reference Number: ${paymentDetails.referenceNumber || 'N/A'}`, margin, y);
-      y += 12;
-      doc.font('Helvetica').fontSize(10).text(
-        `Payment Method: ${paymentDetails.paymentMethod ? paymentDetails.paymentMethod.charAt(0).toUpperCase() + paymentDetails.paymentMethod.slice(1) : 'N/A'}`,
-        margin,
-        y
-      );
-      y += 12;
-      doc.font('Helvetica').fontSize(10).text(
-        `Amount Paid: ${paymentDetails.amount != null ? `₱${paymentDetails.amount.toFixed(2)}` : 'N/A'}`,
-        margin,
-        y
-      );
-      y += 12;
-      doc.font('Helvetica').fontSize(10).text(`Payment Date: ${paymentDate || 'N/A'}`, margin, y);
-      y += 12;
-      doc.font('Helvetica').fontSize(10).text(
-        `Status: ${paymentDetails.status ? paymentDetails.status.charAt(0).toUpperCase() + paymentDetails.status.slice(1) : 'N/A'}`,
-        margin,
-        y
-      );
-      y += 20;
-    }
+    });
 
     // Instructions
-    doc.font('Helvetica-Bold').fontSize(12).text('Instructions', margin, y);
+    y += 10;
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(12)
+      .fillColor('#000000')
+      .text('Instructions:', marginLeft, y, { width: contentWidth });
     y += 15;
+
     const instructions = [
-      '1. Bring this permit on the day of the exam.',
-      '2. Arrive at least 30 minutes before the scheduled time.',
-      '3. Present a valid ID along with this permit.',
-      '4. No permit, no exam policy is strictly enforced.',
-      '5. Contact the Admissions Office for any concerns.',
+      'Please bring this permit to the examination venue.',
+      'Arrive 30 minutes before the scheduled exam time.',
+      'Bring a valid ID and necessary writing materials.',
+      'No electronic devices are allowed inside the exam room.',
     ];
-    instructions.forEach((instruction) => {
-      doc.font('Helvetica').fontSize(10).text(instruction, margin, y, { width: contentWidth });
+
+    instructions.forEach((instruction, index) => {
+      doc
+        .font('Helvetica')
+        .fontSize(10)
+        .fillColor('#444444')
+        .text(`${index + 1}. ${instruction}`, marginLeft, y, { width: contentWidth });
       y += 15;
     });
 
     // Footer
+    y = pageHeight - marginLeft - 20;
+    doc
+      .moveTo(marginLeft, y - 8)
+      .lineTo(pageWidth - marginRight, y - 8)
+      .lineWidth(0.5)
+      .strokeColor('#C68A00')
+      .stroke();
+
     doc
       .font('Helvetica')
-      .fontSize(8)
+      .fontSize(7)
+      .fillColor('#444444')
+      .text('Page 1 of 1', marginLeft, y, {
+        width: pageWidth - marginLeft - marginRight,
+        align: 'center',
+      });
+
+    doc
+      .font('Helvetica')
+      .fontSize(6)
       .fillColor('#990000')
-      .text(
-        'San Juan De Dios Educational Foundation, Inc. © 2025',
-        margin,
-        pageHeight - 30,
-        { align: 'center', width: contentWidth }
-      );
+      .text('San Juan De Dios Educational Foundation, Inc. © 2025', marginLeft, y + 10, {
+        width: pageWidth - marginLeft - marginRight,
+        align: 'center',
+      });
 
     doc.end();
   } catch (error) {
-    console.error('Error generating exam permit PDF:', error.message, error.stack);
-    res.status(500).json({ error: `Failed to generate exam permit PDF: ${error.message}` });
+    console.error('Error generating permit PDF:', error);
+    res.status(500).json({ error: 'Failed to generate permit PDF' });
   }
 });
 
