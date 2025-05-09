@@ -517,16 +517,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Check for OTP attempt lockout
-    if (account.otpAttemptLockout && account.otpAttemptLockout > new Date()) {
-      const timeLeft = Math.ceil((account.otpAttemptLockout - new Date()) / 1000);
-      return res.status(403).json({
-        message: `Too many OTP attempts. Try again in ${timeLeft} seconds.`,
-        errorType: 'otp_lockout',
-        lockoutTimeLeft: timeLeft
-      });
-    }
-
     // Handle pending verification for admin accounts
     if (account.status === 'Pending Verification') {
       // Check if there's a valid existing OTP
