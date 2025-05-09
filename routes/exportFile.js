@@ -8,6 +8,14 @@ const SystemLog = require('../models/SystemLog');
 
 router.get('/accounts', async (req, res) => {
   try {
+    // Extract user information from query parameters
+    const { userID, fullName, role } = req.query;
+    const userInfo = {
+      userID: userID || 'Unknown',
+      fullName: fullName || 'Unknown',
+      role: role || 'Unknown'
+    };
+
     const accounts = await Account.find().lean();
 
     const currentDate = new Date().toISOString().split('T')[0];
@@ -32,7 +40,8 @@ router.get('/accounts', async (req, res) => {
       { label: 'Status', property: 'status', width: 70 },
     ];    
 
-    pdfService.buildPDF(modifiedAccounts, accountColumns, 'Accounts Report', (chunk) => res.write(chunk), () => res.end());
+    // Pass the user information to the PDF service
+    pdfService.buildPDF(modifiedAccounts, accountColumns, 'Accounts Report', userInfo, (chunk) => res.write(chunk), () => res.end());
   } catch (error) {
     console.error('Export failed:', error);
     res.status(500).json({ error: 'Failed to export accounts' });
@@ -41,6 +50,14 @@ router.get('/accounts', async (req, res) => {
 
 router.get('/subjects', async (req, res) => {
   try {
+    // Extract user information from query parameters
+    const { userID, fullName, role } = req.query;
+    const userInfo = {
+      userID: userID || 'Unknown',
+      fullName: fullName || 'Unknown',
+      role: role || 'Unknown'
+    };
+
     const subjects = await Subject.find().lean();
 
     const currentDate = new Date().toISOString().split('T')[0];
@@ -48,6 +65,12 @@ router.get('/subjects', async (req, res) => {
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+    // Add row numbers to subjects
+    const modifiedSubjects = subjects.map((subject, index) => ({
+      ...subject,
+      __rowNumber: (index + 1).toString(),
+    }));
 
     // Define columns specific to subjects
     const subjectColumns = [
@@ -65,17 +88,26 @@ router.get('/subjects', async (req, res) => {
       { label: 'Status', property: 'status', width: 50 },
     ];
 
-    pdfService.buildPDF(subjects, subjectColumns, 'Subjects Report', (chunk) => res.write(chunk), () => res.end());
+    // Pass the user information to the PDF service
+    pdfService.buildPDF(modifiedSubjects, subjectColumns, 'Subjects Report', userInfo, (chunk) => res.write(chunk), () => res.end());
   } catch (error) {
     console.error('Export failed:', error);
     res.status(500).json({ error: 'Failed to export subjects' });
   }
 });
 
-const Section = require('../models/Sections'); 
+const Section = require('../models/Sections');
 
 router.get('/sections', async (req, res) => {
   try {
+    // Extract user information from query parameters
+    const { userID, fullName, role } = req.query;
+    const userInfo = {
+      userID: userID || 'Unknown',
+      fullName: fullName || 'Unknown',
+      role: role || 'Unknown'
+    };
+
     const sections = await Section.find().lean();
 
     const currentDate = new Date().toISOString().split('T')[0];
@@ -98,7 +130,8 @@ router.get('/sections', async (req, res) => {
       { label: 'Status', property: 'status', width: 50 },
     ];
 
-    pdfService.buildPDF(modifiedSections, sectionColumns, 'Sections Report', (chunk) => res.write(chunk), () => res.end());
+    // Pass the user information to the PDF service
+    pdfService.buildPDF(modifiedSections, sectionColumns, 'Sections Report', userInfo, (chunk) => res.write(chunk), () => res.end());
   } catch (error) {
     console.error('Export failed:', error);
     res.status(500).json({ error: 'Failed to export sections' });
@@ -107,6 +140,14 @@ router.get('/sections', async (req, res) => {
 
 router.get('/strands', async (req, res) => {
   try {
+    // Extract user information from query parameters
+    const { userID, fullName, role } = req.query;
+    const userInfo = {
+      userID: userID || 'Unknown',
+      fullName: fullName || 'Unknown',
+      role: role || 'Unknown'
+    };
+
     const strands = await Strand.find().lean();
 
     const currentDate = new Date().toISOString().split('T')[0];
@@ -127,7 +168,8 @@ router.get('/strands', async (req, res) => {
       { label: 'Status', property: 'status', width: 60 },
     ];
 
-    pdfService.buildPDF(modifiedStrands, strandColumns, 'Strands Report', (chunk) => res.write(chunk), () => res.end());
+    // Pass the user information to the PDF service
+    pdfService.buildPDF(modifiedStrands, strandColumns, 'Strands Report', userInfo, (chunk) => res.write(chunk), () => res.end());
   } catch (error) {
     console.error('Export failed:', error);
     res.status(500).json({ error: 'Failed to export strands' });
@@ -136,6 +178,14 @@ router.get('/strands', async (req, res) => {
 
 router.get('/system-logs', async (req, res) => {
   try {
+    // Extract user information from query parameters
+    const { userID, fullName, role } = req.query;
+    const userInfo = {
+      userID: userID || 'Unknown',
+      fullName: fullName || 'Unknown',
+      role: role || 'Unknown'
+    };
+
     const logs = await SystemLog.find().lean();
 
     const currentDate = new Date().toISOString().split('T')[0];
@@ -166,7 +216,8 @@ router.get('/system-logs', async (req, res) => {
       { label: 'Timestamp', property: 'createdAt', width: 130 },
     ];
 
-    pdfService.buildPDF(modifiedLogs, logColumns, 'System Logs Report', (chunk) => res.write(chunk), () => res.end());
+    // Pass the user information to the PDF service
+    pdfService.buildPDF(modifiedLogs, logColumns, 'System Logs Report', userInfo, (chunk) => res.write(chunk), () => res.end());
   } catch (error) {
     console.error('Export failed:', error);
     res.status(500).json({ error: 'Failed to export system logs' });
