@@ -56,6 +56,10 @@ const announcementSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  userID: {
+    type: String,
+    trim: true
   }
 });
 
