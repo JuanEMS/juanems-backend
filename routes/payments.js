@@ -14,7 +14,7 @@ const generateReferenceNumber = () => {
 
 router.post('/create-checkout', async (req, res) => {
   try {
-    const { email, amount } = req.body;
+    const { email, amount, description = 'Exam Fee Payment' } = req.body;
 
     if (!sanitizeString(email)) {
       return res.status(400).json({ error: 'Valid email is required' });
@@ -30,10 +30,16 @@ router.post('/create-checkout', async (req, res) => {
     if (!applicant) {
       return res.status(404).json({ error: 'Active applicant not found' });
     }
-    if (applicant.approvedExamFeeStatus !== 'Required') {
+
+    // Validate amount for reservation payment
+    if (description === 'Reservation Fee Payment' && ![500, 1000].includes(amount)) {
+      return res.status(400).json({ error: 'Invalid reservation fee amount. Must be 500 or 1000.' });
+    }
+    // Validate for exam fee payment
+    if (description === 'Exam Fee Payment' && applicant.approvedExamFeeStatus !== 'Required') {
       return res.status(400).json({ error: 'Payment not required for this applicant' });
     }
-    if (applicant.approvedExamFeeAmount !== amount) {
+    if (description === 'Exam Fee Payment' && applicant.approvedExamFeeAmount !== amount) {
       return res.status(400).json({ error: 'Amount does not match approved exam fee' });
     }
 
@@ -41,6 +47,7 @@ router.post('/create-checkout', async (req, res) => {
     const existingPayment = await PaymentHistory.findOne({
       email: email.toLowerCase(),
       status: 'pending',
+      description,
     });
     if (existingPayment) {
       return res.status(400).json({ error: 'A pending payment already exists. Please complete or cancel it.' });
@@ -54,7 +61,7 @@ router.post('/create-checkout', async (req, res) => {
         attributes: {
           amount: Math.round(amount * 100),
           currency: 'PHP',
-          description: `Exam Fee Payment for ${applicant.applicantID}`,
+          description: `${description} for ${applicant.applicantID}`,
           remarks: referenceNumber,
         },
       },
@@ -99,7 +106,7 @@ router.post('/create-checkout', async (req, res) => {
       applicantName,
       paymentMethod: 'link',
       amount,
-      description: 'Exam Fee Payment',
+      description,
       referenceNumber,
       checkoutId: linkId,
       status: 'pending',
@@ -177,17 +184,21 @@ router.post('/verify-payment', async (req, res) => {
         status: 'Active',
       });
       if (applicant) {
-        applicant.approvedExamFeeStatus = 'Paid';
-        applicant.admissionExamDetailsStatus = 'Complete';
+        if (paymentHistory.description === 'Exam Fee Payment') {
+          applicant.approvedExamFeeStatus = 'Paid';
+          applicant.admissionExamDetailsStatus = 'Complete';
+        } else if (paymentHistory.description === 'Reservation Fee Payment') {
+          applicant.reservationFeePaymentStepStatus = 'Complete';
+          applicant.reservationFeeAmountPaid = paymentHistory.amount;
+        }
         await applicant.save();
-        console.log('Applicant updated:', applicant.email, applicant.approvedExamFeeStatus);
-        fs.appendFileSync('payments.log', `Applicant updated: ${applicant.email}, Status: Paid\n`);
+        console.log('Applicant updated:', applicant.email, paymentHistory.description);
+        fs.appendFileSync('payments.log', `Applicant updated: ${applicant.email}, Description: ${paymentHistory.description}\n`);
       } else {
         console.warn('Applicant not found for email:', paymentHistory.email);
         fs.appendFileSync('payments.log', `Warning: Applicant not found for email: ${paymentHistory.email}\n`);
       }
     } else if (paymentStatus === 'unpaid') {
-      // Mark as cancelled if no payment attempt was made
       paymentHistory.status = 'cancelled';
       paymentHistory.updatedAt = Date.now();
     } else if (paymentStatus === 'expired') {

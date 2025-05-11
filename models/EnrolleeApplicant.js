@@ -156,6 +156,15 @@ const enrolleeApplicantSchema = new mongoose.Schema({
     enum: ['Incomplete', 'Complete'],
     default: 'Incomplete'
   },
+  reservationFeePaymentStepStatus: {
+    type: String,
+    enum: ['Incomplete', 'Complete'],
+    default: 'Incomplete',
+  },
+  reservationFeeAmountPaid: {
+    type: Number,
+    default: 0,
+  },
 });
 
 // Password hashing pre-save hook
