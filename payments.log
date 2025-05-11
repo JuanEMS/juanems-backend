@@ -2031,3 +2031,433 @@ Payment history updated: {
   "__v": 0,
   "paymentId": ""
 }
+Creating link: {
+  "data": {
+    "attributes": {
+      "amount": 50000,
+      "currency": "PHP",
+      "description": "Exam Fee Payment for 2025-000019",
+      "remarks": "REF-1746756944321-823279"
+    }
+  }
+}
+PayMongo response: Status 200, Body {"data":{"id":"link_haFt5bYcDVbKEZCycTN3EC3M","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":0,"remarks":"REF-1746756944321-823279","status":"unpaid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/WmtkNdv","reference_number":"WmtkNdv","created_at":1746756945,"updated_at":1746756945,"payments":[]}}}
+Payment history saved: {
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "pending",
+  "referenceNumber": "REF-1746756944321-823279",
+  "checkoutId": "link_haFt5bYcDVbKEZCycTN3EC3M",
+  "description": "Exam Fee Payment",
+  "_id": "681d65515d1c4b21d6aae0c4",
+  "createdAt": "2025-05-09T02:15:45.720Z",
+  "updatedAt": "2025-05-09T02:15:45.721Z",
+  "__v": 0
+}
+Verify response: Status 200, Body {"data":{"id":"link_haFt5bYcDVbKEZCycTN3EC3M","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":1250,"remarks":"REF-1746756944321-823279","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/WmtkNdv","reference_number":"WmtkNdv","created_at":1746756945,"updated_at":1746756945,"payments":[{"data":{"id":"pay_CYpT6pFredXg76unSQF52Buy","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_zKL1KK4V6hsrD4zR1mH4uGFd","billing":{"address":{"city":"Taguig","country":"PH","line1":"12th floor The Trade and Financial Tower u1206","line2":"32nd street and 7th Avenue","postal_code":"1630","state":"Bonifacio Global City"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Exam Fee Payment for 2025-000019","disputed":false,"external_reference_number":"WmtkNdv","fee":1250,"instant_settlement":null,"livemode":false,"net_amount":48750,"origin":"links","payment_intent_id":null,"payout":null,"source":{"id":"src_8j9vzxh5yCtPe6Ce62iEhetP","type":"gcash","provider":{"id":null},"provider_id":null},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"WmtkNdv"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747126800,"created_at":1746756974,"credited_at":1747213200,"paid_at":1746756974,"updated_at":1746756974}}}]}}}
+Verify response: Status 200, Body {"data":{"id":"link_haFt5bYcDVbKEZCycTN3EC3M","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":1250,"remarks":"REF-1746756944321-823279","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/WmtkNdv","reference_number":"WmtkNdv","created_at":1746756945,"updated_at":1746756945,"payments":[{"data":{"id":"pay_CYpT6pFredXg76unSQF52Buy","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_zKL1KK4V6hsrD4zR1mH4uGFd","billing":{"address":{"city":"Taguig","country":"PH","line1":"12th floor The Trade and Financial Tower u1206","line2":"32nd street and 7th Avenue","postal_code":"1630","state":"Bonifacio Global City"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Exam Fee Payment for 2025-000019","disputed":false,"external_reference_number":"WmtkNdv","fee":1250,"instant_settlement":null,"livemode":false,"net_amount":48750,"origin":"links","payment_intent_id":null,"payout":null,"source":{"id":"src_8j9vzxh5yCtPe6Ce62iEhetP","type":"gcash","provider":{"id":null},"provider_id":null},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"WmtkNdv"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747126800,"created_at":1746756974,"credited_at":1747213200,"paid_at":1746756974,"updated_at":1746756974}}}]}}}
+Applicant updated: jerseyloveu@gmail.com, Status: Paid
+Payment history updated: {
+  "_id": "681d65515d1c4b21d6aae0c4",
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "successful",
+  "referenceNumber": "REF-1746756944321-823279",
+  "checkoutId": "link_haFt5bYcDVbKEZCycTN3EC3M",
+  "description": "Exam Fee Payment",
+  "createdAt": "2025-05-09T02:15:45.720Z",
+  "updatedAt": "2025-05-09T02:16:18.640Z",
+  "__v": 0,
+  "paymentId": ""
+}
+Applicant updated: jerseyloveu@gmail.com, Status: Paid
+Payment history updated: {
+  "_id": "681d65515d1c4b21d6aae0c4",
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "successful",
+  "referenceNumber": "REF-1746756944321-823279",
+  "checkoutId": "link_haFt5bYcDVbKEZCycTN3EC3M",
+  "description": "Exam Fee Payment",
+  "createdAt": "2025-05-09T02:15:45.720Z",
+  "updatedAt": "2025-05-09T02:16:18.689Z",
+  "__v": 0,
+  "paymentId": ""
+}
+Creating link: {
+  "data": {
+    "attributes": {
+      "amount": 50000,
+      "currency": "PHP",
+      "description": "Exam Fee Payment for 2025-000019",
+      "remarks": "REF-1746757057427-379906"
+    }
+  }
+}
+PayMongo response: Status 200, Body {"data":{"id":"link_UUNamHTFi7gD4teYeRiRd87s","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":0,"remarks":"REF-1746757057427-379906","status":"unpaid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/5MJDzj7","reference_number":"5MJDzj7","created_at":1746757058,"updated_at":1746757058,"payments":[]}}}
+Payment history saved: {
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "pending",
+  "referenceNumber": "REF-1746757057427-379906",
+  "checkoutId": "link_UUNamHTFi7gD4teYeRiRd87s",
+  "description": "Exam Fee Payment",
+  "_id": "681d65c25d1c4b21d6aae2ac",
+  "createdAt": "2025-05-09T02:17:38.825Z",
+  "updatedAt": "2025-05-09T02:17:38.826Z",
+  "__v": 0
+}
+Verify response: Status 200, Body {"data":{"id":"link_UUNamHTFi7gD4teYeRiRd87s","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":0,"remarks":"REF-1746757057427-379906","status":"unpaid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/5MJDzj7","reference_number":"5MJDzj7","created_at":1746757058,"updated_at":1746757058,"payments":[]}}}
+Payment history updated: {
+  "_id": "681d65c25d1c4b21d6aae2ac",
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "pending",
+  "referenceNumber": "REF-1746757057427-379906",
+  "checkoutId": "link_UUNamHTFi7gD4teYeRiRd87s",
+  "description": "Exam Fee Payment",
+  "createdAt": "2025-05-09T02:17:38.825Z",
+  "updatedAt": "2025-05-09T02:17:46.013Z",
+  "__v": 0
+}
+Verify response: Status 200, Body {"data":{"id":"link_UUNamHTFi7gD4teYeRiRd87s","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":0,"remarks":"REF-1746757057427-379906","status":"unpaid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/5MJDzj7","reference_number":"5MJDzj7","created_at":1746757058,"updated_at":1746757058,"payments":[]}}}
+Payment history updated: {
+  "_id": "681d65c25d1c4b21d6aae2ac",
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "pending",
+  "referenceNumber": "REF-1746757057427-379906",
+  "checkoutId": "link_UUNamHTFi7gD4teYeRiRd87s",
+  "description": "Exam Fee Payment",
+  "createdAt": "2025-05-09T02:17:38.825Z",
+  "updatedAt": "2025-05-09T02:17:46.064Z",
+  "__v": 0
+}
+Creating link: {
+  "data": {
+    "attributes": {
+      "amount": 50000,
+      "currency": "PHP",
+      "description": "Exam Fee Payment for 2025-000019",
+      "remarks": "REF-1746757077809-139806"
+    }
+  }
+}
+PayMongo response: Status 200, Body {"data":{"id":"link_J9TrLmxFRsrCBAiUHph2P24a","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":0,"remarks":"REF-1746757077809-139806","status":"unpaid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/iaNLojF","reference_number":"iaNLojF","created_at":1746757079,"updated_at":1746757079,"payments":[]}}}
+Payment history saved: {
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "pending",
+  "referenceNumber": "REF-1746757077809-139806",
+  "checkoutId": "link_J9TrLmxFRsrCBAiUHph2P24a",
+  "description": "Exam Fee Payment",
+  "_id": "681d65d75d1c4b21d6aae2f9",
+  "createdAt": "2025-05-09T02:17:59.154Z",
+  "updatedAt": "2025-05-09T02:17:59.154Z",
+  "__v": 0
+}
+Verify response: Status 200, Body {"data":{"id":"link_J9TrLmxFRsrCBAiUHph2P24a","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":1250,"remarks":"REF-1746757077809-139806","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/iaNLojF","reference_number":"iaNLojF","created_at":1746757079,"updated_at":1746757079,"payments":[{"data":{"id":"pay_rfz4K199vRs1oku5XY95BvXq","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_CP74hDiioVkNHqcBoZGh7p6o","billing":{"address":{"city":"Taguig","country":"PH","line1":"12th floor The Trade and Financial Tower u1206","line2":"32nd street and 7th Avenue","postal_code":"1630","state":"Bonifacio Global City"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Exam Fee Payment for 2025-000019","disputed":false,"external_reference_number":"iaNLojF","fee":1250,"instant_settlement":null,"livemode":false,"net_amount":48750,"origin":"links","payment_intent_id":null,"payout":null,"source":{"id":"src_3Bifnyu1Vgsvrn1AtL36Ljw8","type":"gcash","provider":{"id":null},"provider_id":null},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"iaNLojF"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747126800,"created_at":1746757102,"credited_at":1747213200,"paid_at":1746757102,"updated_at":1746757102}}}]}}}
+Verify response: Status 200, Body {"data":{"id":"link_J9TrLmxFRsrCBAiUHph2P24a","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":1250,"remarks":"REF-1746757077809-139806","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/iaNLojF","reference_number":"iaNLojF","created_at":1746757079,"updated_at":1746757079,"payments":[{"data":{"id":"pay_rfz4K199vRs1oku5XY95BvXq","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_CP74hDiioVkNHqcBoZGh7p6o","billing":{"address":{"city":"Taguig","country":"PH","line1":"12th floor The Trade and Financial Tower u1206","line2":"32nd street and 7th Avenue","postal_code":"1630","state":"Bonifacio Global City"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Exam Fee Payment for 2025-000019","disputed":false,"external_reference_number":"iaNLojF","fee":1250,"instant_settlement":null,"livemode":false,"net_amount":48750,"origin":"links","payment_intent_id":null,"payout":null,"source":{"id":"src_3Bifnyu1Vgsvrn1AtL36Ljw8","type":"gcash","provider":{"id":null},"provider_id":null},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"iaNLojF"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747126800,"created_at":1746757102,"credited_at":1747213200,"paid_at":1746757102,"updated_at":1746757102}}}]}}}
+Applicant updated: jerseyloveu@gmail.com, Status: Paid
+Payment history updated: {
+  "_id": "681d65d75d1c4b21d6aae2f9",
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "successful",
+  "referenceNumber": "REF-1746757077809-139806",
+  "checkoutId": "link_J9TrLmxFRsrCBAiUHph2P24a",
+  "description": "Exam Fee Payment",
+  "createdAt": "2025-05-09T02:17:59.154Z",
+  "updatedAt": "2025-05-09T02:18:29.566Z",
+  "__v": 0,
+  "paymentId": ""
+}
+Applicant updated: jerseyloveu@gmail.com, Status: Paid
+Payment history updated: {
+  "_id": "681d65d75d1c4b21d6aae2f9",
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "successful",
+  "referenceNumber": "REF-1746757077809-139806",
+  "checkoutId": "link_J9TrLmxFRsrCBAiUHph2P24a",
+  "description": "Exam Fee Payment",
+  "createdAt": "2025-05-09T02:17:59.154Z",
+  "updatedAt": "2025-05-09T02:18:29.618Z",
+  "__v": 0,
+  "paymentId": ""
+}
+Creating link: {
+  "data": {
+    "attributes": {
+      "amount": 50000,
+      "currency": "PHP",
+      "description": "Exam Fee Payment for 2025-000019",
+      "remarks": "REF-1746760695516-264897"
+    }
+  }
+}
+PayMongo response: Status 200, Body {"data":{"id":"link_q2tydKM6DwN1L2vAqot7uDKA","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":0,"remarks":"REF-1746760695516-264897","status":"unpaid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/L4MzSiW","reference_number":"L4MzSiW","created_at":1746760700,"updated_at":1746760700,"payments":[]}}}
+Payment history saved: {
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "pending",
+  "referenceNumber": "REF-1746760695516-264897",
+  "checkoutId": "link_q2tydKM6DwN1L2vAqot7uDKA",
+  "description": "Exam Fee Payment",
+  "_id": "681d73fcc91d0e03d86646c2",
+  "createdAt": "2025-05-09T03:18:20.541Z",
+  "updatedAt": "2025-05-09T03:18:20.545Z",
+  "__v": 0
+}
+Verify response: Status 200, Body {"data":{"id":"link_q2tydKM6DwN1L2vAqot7uDKA","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":0,"remarks":"REF-1746760695516-264897","status":"unpaid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/L4MzSiW","reference_number":"L4MzSiW","created_at":1746760700,"updated_at":1746760700,"payments":[]}}}
+Payment history updated: {
+  "_id": "681d73fcc91d0e03d86646c2",
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "cancelled",
+  "referenceNumber": "REF-1746760695516-264897",
+  "checkoutId": "link_q2tydKM6DwN1L2vAqot7uDKA",
+  "description": "Exam Fee Payment",
+  "createdAt": "2025-05-09T03:18:20.541Z",
+  "updatedAt": "2025-05-09T03:19:10.002Z",
+  "__v": 0
+}
+Creating link: {
+  "data": {
+    "attributes": {
+      "amount": 50000,
+      "currency": "PHP",
+      "description": "Exam Fee Payment for 2025-000019",
+      "remarks": "REF-1746760775829-584366"
+    }
+  }
+}
+PayMongo response: Status 200, Body {"data":{"id":"link_DVqyFRNJPwjr73pyhjZ3sBU4","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":0,"remarks":"REF-1746760775829-584366","status":"unpaid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/pmbZpM1","reference_number":"pmbZpM1","created_at":1746760779,"updated_at":1746760779,"payments":[]}}}
+Payment history saved: {
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "pending",
+  "referenceNumber": "REF-1746760775829-584366",
+  "checkoutId": "link_DVqyFRNJPwjr73pyhjZ3sBU4",
+  "description": "Exam Fee Payment",
+  "_id": "681d744bc91d0e03d86647b3",
+  "createdAt": "2025-05-09T03:19:39.848Z",
+  "updatedAt": "2025-05-09T03:19:39.848Z",
+  "__v": 0
+}
+Verify response: Status 200, Body {"data":{"id":"link_DVqyFRNJPwjr73pyhjZ3sBU4","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":3250,"remarks":"REF-1746760775829-584366","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/pmbZpM1","reference_number":"pmbZpM1","created_at":1746760779,"updated_at":1746760779,"payments":[{"data":{"id":"pay_nJqNS2VDYMB2eBtcoKPrmJom","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_dRsdfcCRiExjYYsSRA59XRj4","billing":{"address":{"city":"Pasay","country":"PH","line1":"dsds","line2":"sdsd","postal_code":"1300","state":"Metro Manila"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Exam Fee Payment for 2025-000019","disputed":false,"external_reference_number":"pmbZpM1","fee":3250,"foreign_fee":500,"instant_settlement":null,"livemode":false,"net_amount":46250,"origin":"links","payment_intent_id":"pi_NWRYQd4scRDpXRR6AiT6mgsu","payout":null,"source":{"id":"card_iyxnmmDJteR4pxA6RJXSkxgr","type":"card","brand":"mastercard","country":"US","last4":"0009"},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"pmbZpM1"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747213200,"created_at":1746760859,"credited_at":1747818000,"paid_at":1746760858,"updated_at":1746760859}}}]}}}
+Verify response: Status 200, Body {"data":{"id":"link_DVqyFRNJPwjr73pyhjZ3sBU4","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":3250,"remarks":"REF-1746760775829-584366","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/pmbZpM1","reference_number":"pmbZpM1","created_at":1746760779,"updated_at":1746760779,"payments":[{"data":{"id":"pay_nJqNS2VDYMB2eBtcoKPrmJom","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_dRsdfcCRiExjYYsSRA59XRj4","billing":{"address":{"city":"Pasay","country":"PH","line1":"dsds","line2":"sdsd","postal_code":"1300","state":"Metro Manila"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Exam Fee Payment for 2025-000019","disputed":false,"external_reference_number":"pmbZpM1","fee":3250,"foreign_fee":500,"instant_settlement":null,"livemode":false,"net_amount":46250,"origin":"links","payment_intent_id":"pi_NWRYQd4scRDpXRR6AiT6mgsu","payout":null,"source":{"id":"card_iyxnmmDJteR4pxA6RJXSkxgr","type":"card","brand":"mastercard","country":"US","last4":"0009"},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"pmbZpM1"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747213200,"created_at":1746760859,"credited_at":1747818000,"paid_at":1746760858,"updated_at":1746760859}}}]}}}
+Applicant updated: jerseyloveu@gmail.com, Status: Paid
+Payment history updated: {
+  "_id": "681d744bc91d0e03d86647b3",
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "successful",
+  "referenceNumber": "REF-1746760775829-584366",
+  "checkoutId": "link_DVqyFRNJPwjr73pyhjZ3sBU4",
+  "description": "Exam Fee Payment",
+  "createdAt": "2025-05-09T03:19:39.848Z",
+  "updatedAt": "2025-05-09T03:21:19.330Z",
+  "__v": 0,
+  "paymentId": ""
+}
+Applicant updated: jerseyloveu@gmail.com, Status: Paid
+Payment history updated: {
+  "_id": "681d744bc91d0e03d86647b3",
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "successful",
+  "referenceNumber": "REF-1746760775829-584366",
+  "checkoutId": "link_DVqyFRNJPwjr73pyhjZ3sBU4",
+  "description": "Exam Fee Payment",
+  "createdAt": "2025-05-09T03:19:39.848Z",
+  "updatedAt": "2025-05-09T03:21:19.458Z",
+  "__v": 0,
+  "paymentId": ""
+}
+Creating link: {
+  "data": {
+    "attributes": {
+      "amount": 50000,
+      "currency": "PHP",
+      "description": "Exam Fee Payment for 2025-000019",
+      "remarks": "REF-1746764958823-78594"
+    }
+  }
+}
+PayMongo response: Status 200, Body {"data":{"id":"link_6G7wYZjQbWdyFNwzdjcDcLNH","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":0,"remarks":"REF-1746764958823-78594","status":"unpaid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/We91DfU","reference_number":"We91DfU","created_at":1746764963,"updated_at":1746764963,"payments":[]}}}
+Payment history saved: {
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "pending",
+  "referenceNumber": "REF-1746764958823-78594",
+  "checkoutId": "link_6G7wYZjQbWdyFNwzdjcDcLNH",
+  "description": "Exam Fee Payment",
+  "_id": "681d84a3ae1f621a39c42a93",
+  "createdAt": "2025-05-09T04:29:23.856Z",
+  "updatedAt": "2025-05-09T04:29:23.862Z",
+  "__v": 0
+}
+Verify response: Status 200, Body {"data":{"id":"link_6G7wYZjQbWdyFNwzdjcDcLNH","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":1250,"remarks":"REF-1746764958823-78594","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/We91DfU","reference_number":"We91DfU","created_at":1746764963,"updated_at":1746764963,"payments":[{"data":{"id":"pay_UqPZhVDHwccNLzrRbXMBKrxn","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_DA4Ejp6aPk5WcKZQ77ZmhR7G","billing":{"address":{"city":"Taguig","country":"PH","line1":"12th floor The Trade and Financial Tower u1206","line2":"32nd street and 7th Avenue","postal_code":"1630","state":"Bonifacio Global City"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Exam Fee Payment for 2025-000019","disputed":false,"external_reference_number":"We91DfU","fee":1250,"instant_settlement":null,"livemode":false,"net_amount":48750,"origin":"links","payment_intent_id":null,"payout":null,"source":{"id":"src_YVYohLCTmzhBrWFdSuaAQ8K6","type":"gcash","provider":{"id":null},"provider_id":null},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"We91DfU"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747126800,"created_at":1746765007,"credited_at":1747213200,"paid_at":1746765007,"updated_at":1746765007}}}]}}}
+Verify response: Status 200, Body {"data":{"id":"link_6G7wYZjQbWdyFNwzdjcDcLNH","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":1250,"remarks":"REF-1746764958823-78594","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/We91DfU","reference_number":"We91DfU","created_at":1746764963,"updated_at":1746764963,"payments":[{"data":{"id":"pay_UqPZhVDHwccNLzrRbXMBKrxn","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_DA4Ejp6aPk5WcKZQ77ZmhR7G","billing":{"address":{"city":"Taguig","country":"PH","line1":"12th floor The Trade and Financial Tower u1206","line2":"32nd street and 7th Avenue","postal_code":"1630","state":"Bonifacio Global City"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Exam Fee Payment for 2025-000019","disputed":false,"external_reference_number":"We91DfU","fee":1250,"instant_settlement":null,"livemode":false,"net_amount":48750,"origin":"links","payment_intent_id":null,"payout":null,"source":{"id":"src_YVYohLCTmzhBrWFdSuaAQ8K6","type":"gcash","provider":{"id":null},"provider_id":null},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"We91DfU"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747126800,"created_at":1746765007,"credited_at":1747213200,"paid_at":1746765007,"updated_at":1746765007}}}]}}}
+Applicant updated: jerseyloveu@gmail.com, Status: Paid
+Applicant updated: jerseyloveu@gmail.com, Status: Paid
+Payment history updated: {
+  "_id": "681d84a3ae1f621a39c42a93",
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "successful",
+  "referenceNumber": "REF-1746764958823-78594",
+  "checkoutId": "link_6G7wYZjQbWdyFNwzdjcDcLNH",
+  "description": "Exam Fee Payment",
+  "createdAt": "2025-05-09T04:29:23.856Z",
+  "updatedAt": "2025-05-09T04:30:51.442Z",
+  "__v": 0,
+  "paymentId": ""
+}
+Payment history updated: {
+  "_id": "681d84a3ae1f621a39c42a93",
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "successful",
+  "referenceNumber": "REF-1746764958823-78594",
+  "checkoutId": "link_6G7wYZjQbWdyFNwzdjcDcLNH",
+  "description": "Exam Fee Payment",
+  "createdAt": "2025-05-09T04:29:23.856Z",
+  "updatedAt": "2025-05-09T04:30:51.453Z",
+  "__v": 0,
+  "paymentId": ""
+}
+Creating link: {
+  "data": {
+    "attributes": {
+      "amount": 50000,
+      "currency": "PHP",
+      "description": "Exam Fee Payment for 2025-000019",
+      "remarks": "REF-1746953722026-109024"
+    }
+  }
+}
+PayMongo response: Status 200, Body {"data":{"id":"link_RwH4ukn2ikkBbGJZPNonCGHu","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":0,"remarks":"REF-1746953722026-109024","status":"unpaid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/YJ5aUKK","reference_number":"YJ5aUKK","created_at":1746953726,"updated_at":1746953726,"payments":[]}}}
+Payment history saved: {
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "pending",
+  "referenceNumber": "REF-1746953722026-109024",
+  "checkoutId": "link_RwH4ukn2ikkBbGJZPNonCGHu",
+  "description": "Exam Fee Payment",
+  "_id": "682065fc82ac2a6590cb0178",
+  "createdAt": "2025-05-11T08:55:24.256Z",
+  "updatedAt": "2025-05-11T08:55:24.258Z",
+  "__v": 0
+}
+Verify response: Status 200, Body {"data":{"id":"link_RwH4ukn2ikkBbGJZPNonCGHu","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":1250,"remarks":"REF-1746953722026-109024","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/YJ5aUKK","reference_number":"YJ5aUKK","created_at":1746953726,"updated_at":1746953726,"payments":[{"data":{"id":"pay_foqhg4JMWxjfAv3QNpqHFzHp","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_bBxSYY4iqwjG9FijwKX5iJcg","billing":{"address":{"city":"Taguig","country":"PH","line1":"12th floor The Trade and Financial Tower u1206","line2":"32nd street and 7th Avenue","postal_code":"1630","state":"Bonifacio Global City"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Exam Fee Payment for 2025-000019","disputed":false,"external_reference_number":"YJ5aUKK","fee":1250,"instant_settlement":null,"livemode":false,"net_amount":48750,"origin":"links","payment_intent_id":null,"payout":null,"source":{"id":"src_P6WymMRHCfNr4FVEk9dhRpci","type":"gcash","provider":{"id":null},"provider_id":null},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"YJ5aUKK"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747213200,"created_at":1746953770,"credited_at":1747818000,"paid_at":1746953770,"updated_at":1746953770}}}]}}}
+Verify response: Status 200, Body {"data":{"id":"link_RwH4ukn2ikkBbGJZPNonCGHu","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000019","livemode":false,"fee":1250,"remarks":"REF-1746953722026-109024","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/YJ5aUKK","reference_number":"YJ5aUKK","created_at":1746953726,"updated_at":1746953726,"payments":[{"data":{"id":"pay_foqhg4JMWxjfAv3QNpqHFzHp","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_bBxSYY4iqwjG9FijwKX5iJcg","billing":{"address":{"city":"Taguig","country":"PH","line1":"12th floor The Trade and Financial Tower u1206","line2":"32nd street and 7th Avenue","postal_code":"1630","state":"Bonifacio Global City"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Exam Fee Payment for 2025-000019","disputed":false,"external_reference_number":"YJ5aUKK","fee":1250,"instant_settlement":null,"livemode":false,"net_amount":48750,"origin":"links","payment_intent_id":null,"payout":null,"source":{"id":"src_P6WymMRHCfNr4FVEk9dhRpci","type":"gcash","provider":{"id":null},"provider_id":null},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"YJ5aUKK"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747213200,"created_at":1746953770,"credited_at":1747818000,"paid_at":1746953770,"updated_at":1746953770}}}]}}}
+Applicant updated: jerseyloveu@gmail.com, Status: Paid
+Payment history updated: {
+  "_id": "682065fc82ac2a6590cb0178",
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "successful",
+  "referenceNumber": "REF-1746953722026-109024",
+  "checkoutId": "link_RwH4ukn2ikkBbGJZPNonCGHu",
+  "description": "Exam Fee Payment",
+  "createdAt": "2025-05-11T08:55:24.256Z",
+  "updatedAt": "2025-05-11T08:56:13.202Z",
+  "__v": 0,
+  "paymentId": ""
+}
+Applicant updated: jerseyloveu@gmail.com, Status: Paid
+Payment history updated: {
+  "_id": "682065fc82ac2a6590cb0178",
+  "applicantID": "2025-000019",
+  "email": "jerseyloveu@gmail.com",
+  "applicantName": "Oscar Love Piastri",
+  "paymentMethod": "link",
+  "amount": 500,
+  "currency": "PHP",
+  "status": "successful",
+  "referenceNumber": "REF-1746953722026-109024",
+  "checkoutId": "link_RwH4ukn2ikkBbGJZPNonCGHu",
+  "description": "Exam Fee Payment",
+  "createdAt": "2025-05-11T08:55:24.256Z",
+  "updatedAt": "2025-05-11T08:56:13.291Z",
+  "__v": 0,
+  "paymentId": ""
+}

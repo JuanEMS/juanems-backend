@@ -146,6 +146,16 @@ const enrolleeApplicantSchema = new mongoose.Schema({
     default: 'Required'
   },
   approvedExamRoom: { type: String },
+  approvedExamInterviewResult: {
+    type: String,
+    enum: ['Pending', 'On Waiting List', 'Rejected', 'Approved'],
+    default: 'Pending'
+  },
+  examInterviewResultStatus: {
+    type: String,
+    enum: ['Incomplete', 'Complete'],
+    default: 'Incomplete'
+  },
 });
 
 // Password hashing pre-save hook
@@ -190,20 +200,6 @@ enrolleeApplicantSchema.pre('save', function (next) {
   }
   next();
 });
-
-// Method to check if OTP is valid
-enrolleeApplicantSchema.methods.isOtpValid = function () {
-  return this.otp && this.otpExpires && this.otpExpires > Date.now();
-};
-
-// Method to get temporary password
-enrolleeApplicantSchema.methods.getPlainPassword = async function () {
-  const user = await this.model('EnrolleeApplicant')
-    .findById(this._id)
-    .select('+temporaryPassword')
-    .exec();
-  return user.temporaryPassword;
-};
 
 // Method to check if OTP is valid
 enrolleeApplicantSchema.methods.isOtpValid = function () {

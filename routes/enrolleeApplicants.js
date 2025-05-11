@@ -1381,6 +1381,8 @@ router.get('/exam-details/:email', async (req, res) => {
       return res.status(200).json({
         admissionAdminFirstStatus: applicant.admissionAdminFirstStatus,
         admissionExamDetailsStatus: applicant.admissionExamDetailsStatus || 'Incomplete',
+        approvedExamInterviewResult: applicant.approvedExamInterviewResult || 'Pending',
+        examInterviewResultStatus: applicant.examInterviewResultStatus || 'Incomplete',
         message: 'Exam details are not yet assigned. Application is under review.',
       });
     }
@@ -1389,6 +1391,8 @@ router.get('/exam-details/:email', async (req, res) => {
       admissionAdminFirstStatus: applicant.admissionAdminFirstStatus,
       approvedExamDate: applicant.approvedExamDate,
       admissionExamDetailsStatus: applicant.admissionExamDetailsStatus,
+      approvedExamInterviewResult: applicant.approvedExamInterviewResult,
+      examInterviewResultStatus: applicant.examInterviewResultStatus,
     });
 
     res.status(200).json({
@@ -1400,6 +1404,8 @@ router.get('/exam-details/:email', async (req, res) => {
       approvedExamFeeAmount: applicant.approvedExamFeeAmount,
       approvedExamFeeStatus: applicant.approvedExamFeeStatus || 'Required',
       approvedExamRoom: applicant.approvedExamRoom,
+      approvedExamInterviewResult: applicant.approvedExamInterviewResult || 'Pending',
+      examInterviewResultStatus: applicant.examInterviewResultStatus || 'Incomplete',
     });
   } catch (err) {
     console.error('Error fetching exam details:', err.message, err.stack);
