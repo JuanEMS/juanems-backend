@@ -7,7 +7,7 @@ const router = express.Router();
 const archiveQueueData = async (queueData, exitReason = 'user_left') => {
   const now = new Date();
   const archiveDate = now.toISOString().split('T')[0];
-  
+
   const archivedGuest = new ArchivedGuestUsers({
     ...queueData.toObject(),
     _id: undefined, // Let MongoDB create new ID
@@ -24,11 +24,10 @@ const archiveQueueData = async (queueData, exitReason = 'user_left') => {
 };
 
 // Helper function to generate queue numbers
-// Helper function to generate queue numbers
 const generateQueueNumber = async (department) => {
   // Get the current date in YYYY-MM-DD format for checking archives
   const today = new Date().toISOString().split('T')[0];
-  
+
   // Set department prefix
   let queuePrefix = '';
   switch (department) {
@@ -42,25 +41,25 @@ const generateQueueNumber = async (department) => {
   const lastActiveQueue = await GuestQueueData.findOne({ department })
     .sort({ queueNumber: -1 })
     .select('queueNumber');
-  
+
   // Then, check archived queues from today
-  const lastArchivedQueue = await ArchivedGuestUsers.findOne({ 
+  const lastArchivedQueue = await ArchivedGuestUsers.findOne({
     department,
     archiveDate: today
   })
     .sort({ originalQueueNumber: -1 })
     .select('originalQueueNumber');
-  
+
   // Determine the highest queue number between active and archived
-  let lastActiveNumber = lastActiveQueue ? 
+  let lastActiveNumber = lastActiveQueue ?
     parseInt(lastActiveQueue.queueNumber.slice(queuePrefix.length)) || 0 : 0;
-    
-  let lastArchivedNumber = lastArchivedQueue ? 
+
+  let lastArchivedNumber = lastArchivedQueue ?
     parseInt(lastArchivedQueue.originalQueueNumber.slice(queuePrefix.length)) || 0 : 0;
-  
+
   // Use the maximum value between active and archived numbers
   const lastNumber = Math.max(lastActiveNumber, lastArchivedNumber);
-  
+
   // Return next queue number
   return `${queuePrefix}${lastNumber + 1}`;
 };
@@ -99,9 +98,9 @@ router.post('/create', async (req, res) => {
       data: newQueueData,
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Error creating guest queue data', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error creating guest queue data',
+      error: error.message
     });
   }
 });
@@ -110,7 +109,7 @@ router.post('/create', async (req, res) => {
 router.post('/archive', async (req, res) => {
   try {
     const { queueNumber, originalQueueNumber, exitReason = 'user_left', guestUserId } = req.body;
-    
+
     // Find the active queue record
     const guestData = await GuestQueueData.findOne({
       $or: [
@@ -118,7 +117,7 @@ router.post('/archive', async (req, res) => {
         { guestUserId }
       ]
     });
-    
+
     if (!guestData) {
       return res.status(404).json({ message: 'Queue data not found' });
     }
@@ -143,7 +142,7 @@ router.post('/archive', async (req, res) => {
     });
   } catch (error) {
     console.error('Archive error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Error archiving guest data',
       error: error.message
     });
@@ -153,13 +152,13 @@ router.post('/archive', async (req, res) => {
 // Get all pending queues by department
 router.get('/pending', async (req, res) => {
   const { department } = req.query;
-  
+
   try {
-    const queues = await GuestQueueData.find({ 
+    const queues = await GuestQueueData.find({
       department,
-      status: 'pending' 
+      status: 'pending'
     }).sort({ queueNumber: 1 });
-    
+
     res.json(queues);
   } catch (err) {
     res.status(500).send('Server Error');
@@ -169,35 +168,35 @@ router.get('/pending', async (req, res) => {
 // Get currently serving queue
 router.get('/currentlyServing', async (req, res) => {
   const { department } = req.query;
-  
+
   if (!department) {
     return res.status(400).json({ message: 'Department is required' });
   }
-  
+
   try {
-    const current = await GuestQueueData.findOne({ 
+    const current = await GuestQueueData.findOne({
       department,
-      status: 'accepted' 
+      status: 'accepted'
     });
-    
+
     if (current) {
-      res.json({ 
+      res.json({
         queueNumber: current.queueNumber,
         department,
         guestUserId: current.guestUserId,
         servingStartTime: current.servingStartTime
       });
     } else {
-      res.json({ 
+      res.json({
         queueNumber: null,
-        department 
+        department
       });
     }
   } catch (err) {
     console.error('Error fetching currently serving queue:', err);
-    res.status(500).json({ 
-      message: 'Server Error', 
-      error: err.message 
+    res.status(500).json({
+      message: 'Server Error',
+      error: err.message
     });
   }
 });
@@ -206,7 +205,7 @@ router.get('/currentlyServing', async (req, res) => {
 // Get queue status
 router.get('/status/:queueNumber', async (req, res) => {
   const { queueNumber } = req.params;
-  
+
   try {
     const queue = await GuestQueueData.findOne({ queueNumber });
     res.json({ status: queue?.status || 'pending' });
@@ -222,9 +221,9 @@ router.put('/finishQueue/:queueNumber', async (req, res) => {
   try {
     const currentQueue = await GuestQueueData.findOne({ queueNumber });
     if (!currentQueue) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         message: 'Queue not found',
-        success: false 
+        success: false
       });
     }
 
@@ -235,7 +234,7 @@ router.put('/finishQueue/:queueNumber', async (req, res) => {
 
     // Archive the finished queue with serving time data
     const archivedGuest = await archiveQueueData(currentQueue, 'served');
-    
+
     // Update the archived record with serving time
     await ArchivedGuestUsers.findByIdAndUpdate(archivedGuest._id, {
       servingEndTime,
@@ -255,12 +254,12 @@ router.put('/finishQueue/:queueNumber', async (req, res) => {
     // Calculate department stats and return them
     const today = new Date().toISOString().split('T')[0];
     const stats = await ArchivedGuestUsers.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           department: currentQueue.department,
           archiveDate: today,
           status: 'completed'
-        } 
+        }
       },
       {
         $group: {
@@ -302,7 +301,7 @@ router.put('/finishQueue/:queueNumber', async (req, res) => {
 // Get a specific guest by queue number
 router.get('/getGuest/:queueNumber', async (req, res) => {
   const { queueNumber } = req.params;
-  
+
   try {
     const guest = await GuestQueueData.findOne({ queueNumber });
     if (!guest) {
@@ -328,14 +327,14 @@ router.delete('/delete/:queueNumber', async (req, res) => {
     await archiveQueueData(guestData, 'user_left');
     await GuestQueueData.deleteOne({ _id: guestData._id });
 
-    res.status(200).json({ 
-      message: 'Queue data archived successfully', 
-      data: guestData 
+    res.status(200).json({
+      message: 'Queue data archived successfully',
+      data: guestData
     });
   } catch (error) {
-    res.status(500).json({ 
-      message: 'Error archiving queue data', 
-      error: error.message 
+    res.status(500).json({
+      message: 'Error archiving queue data',
+      error: error.message
     });
   }
 });
@@ -348,10 +347,10 @@ router.get('/getCurrentQueue', async (req, res) => {
     const currentQueue = await GuestQueueData.findOne({ department, status: 'pending' })
       .sort({ queueNumber: -1 })
       .limit(1);
-      
-    const currentQueueNumber = currentQueue ? 
+
+    const currentQueueNumber = currentQueue ?
       parseInt(currentQueue.queueNumber.substring(2)) : 0;
-      
+
     res.json({ currentQueueNumber });
   } catch (err) {
     res.status(500).send('Server Error');
@@ -375,7 +374,7 @@ router.put('/acceptQueue/:queueNumber', async (req, res) => {
     const numericPart = parseInt(queueNumber.substring(2));
     const nextQueueNumber = `${queue.department.substring(0, 2).toUpperCase()}${numericPart + 1}`;
 
-    res.json({ 
+    res.json({
       message: 'Queue Accepted',
       nextQueueNumber,
       servingStartTime: queue.servingStartTime
@@ -387,22 +386,22 @@ router.put('/acceptQueue/:queueNumber', async (req, res) => {
 
 router.get('/statistics', async (req, res) => {
   const { department, date } = req.query;
-  
+
   if (!department) {
     return res.status(400).json({ message: 'Department is required' });
   }
-  
+
   try {
     const queryDate = date || new Date().toISOString().split('T')[0];
-    
+
     // Get statistics from archived guests
     const stats = await ArchivedGuestUsers.aggregate([
-      { 
-        $match: { 
+      {
+        $match: {
           department,
           archiveDate: queryDate,
           status: 'completed'
-        } 
+        }
       },
       {
         $group: {
@@ -412,19 +411,19 @@ router.get('/statistics', async (req, res) => {
         }
       }
     ]);
-    
+
     // Get current pending queue count
     const pendingCount = await GuestQueueData.countDocuments({
       department,
       status: 'pending'
     });
-    
+
     // Get current accepted queue (if any)
     const currentlyServing = await GuestQueueData.findOne({
       department,
       status: 'accepted'
     });
-    
+
     res.json({
       totalServed: stats.length > 0 ? stats[0].totalServed : 0,
       avgServingTime: stats.length > 0 ? stats[0].avgServingTime.toFixed(1) : '0.0',
@@ -436,10 +435,152 @@ router.get('/statistics', async (req, res) => {
     });
   } catch (err) {
     console.error('Error fetching statistics:', err);
-    res.status(500).json({ 
-      message: 'Error fetching statistics', 
-      error: err.message 
+    res.status(500).json({
+      message: 'Error fetching statistics',
+      error: err.message
     });
+  }
+});
+
+router.delete('/removeQueue/:queueNumber', async (req, res) => {
+  const { queueNumber } = req.params;
+  const {
+    removedBy,  // Admin ID or username
+    removalReason = 'Administrative action' // Optional reason
+  } = req.body;
+
+  try {
+    const guestData = await GuestQueueData.findOne({ queueNumber });
+    if (!guestData) {
+      return res.status(404).json({ message: 'Queue data not found' });
+    }
+
+    // Archive then delete with specific exit reason and admin metadata
+    const archivedGuest = new ArchivedGuestUsers({
+      ...guestData.toObject(),
+      queueNumber: `${guestData.queueNumber}-removed`, // Add timestamp indicator
+      originalQueueNumber: guestData.queueNumber,
+      archivedAt: new Date(),
+      archiveDate: new Date().toISOString().split('T')[0],
+      exitReason: 'removed_by_admin',
+      status: 'removed_by_admin',
+      removedBy,
+      removalReason
+    });
+
+    await archivedGuest.save();
+    await GuestQueueData.deleteOne({ _id: guestData._id });
+
+    // Recalculate queue order after removal
+    const remainingQueues = await GuestQueueData.find({
+      department: guestData.department,
+      status: 'pending'
+    }).sort({ createdAt: 1 });
+
+    res.status(200).json({
+      message: 'Queue data removed successfully',
+      data: {
+        removedQueue: guestData,
+        remainingQueueCount: remainingQueues.length,
+        nextQueue: remainingQueues.length > 0 ? remainingQueues[0] : null
+      }
+    });
+  } catch (error) {
+    console.error('Error removing queue:', error);
+    res.status(500).json({
+      message: 'Error removing queue data',
+      error: error.message
+    });
+  }
+});
+
+// Add this new route to handle skipping a queue
+router.put('/skipQueue/:queueNumber', async (req, res) => {
+  const { queueNumber } = req.params;
+  const { skippedBy } = req.body;
+
+  try {
+    const queue = await GuestQueueData.findOne({ queueNumber });
+    if (!queue) {
+      return res.status(404).send('Queue not found');
+    }
+
+    // Mark the queue as skipped
+    queue.isSkipped = true;
+    queue.status = 'skipped';
+    queue.skippedBy = skippedBy || 'admin';
+    queue.skippedAt = new Date();
+
+    await queue.save();
+
+    // Refresh the pending queues for this department
+    const pendingQueues = await GuestQueueData.find({
+      department: queue.department,
+      status: 'pending'
+    }).sort({ createdAt: 1 });
+
+    res.json({
+      message: 'Queue Skipped',
+      skippedQueue: queue,
+      pendingQueues
+    });
+  } catch (err) {
+    console.error('Error skipping queue:', err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Add a route to retrieve skipped queues
+router.get('/skippedQueues', async (req, res) => {
+  const { department } = req.query;
+
+  if (!department) {
+    return res.status(400).json({ message: 'Department is required' });
+  }
+
+  try {
+    const skippedQueues = await GuestQueueData.find({
+      department,
+      isSkipped: true,
+      status: 'skipped'
+    }).sort({ skippedAt: -1 });
+
+    res.json(skippedQueues);
+  } catch (err) {
+    console.error('Error fetching skipped queues:', err);
+    res.status(500).json({
+      message: 'Error fetching skipped queues',
+      error: err.message
+    });
+  }
+});
+
+router.put('/reintegrateQueue/:queueNumber', async (req, res) => {
+  const { queueNumber } = req.params;
+
+  try {
+    const queue = await GuestQueueData.findOne({ queueNumber });
+    if (!queue) {
+      return res.status(404).send('Queue not found');
+    }
+
+    // If the queue was skipped, reintegrate it
+    if (queue.isSkipped) {
+      queue.isSkipped = false;
+      queue.status = 'pending';
+      queue.skippedBy = undefined;
+      queue.skippedAt = undefined;
+
+      await queue.save();
+    }
+
+    res.json({
+      message: 'Queue Reintegrated',
+      queue
+    });
+  } catch (err) {
+    console.error('Error reintegrating queue:', err);
+    res.status(500).send('Server Error');
   }
 });
 
