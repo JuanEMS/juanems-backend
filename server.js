@@ -12,6 +12,8 @@ const roleRoutes = require('./routes/rolesRoutes');
 const systemLogRoutes = require('./routes/systemLogRoutes');
 const exportFile = require('./routes/exportFile');
 const announcementRoutes = require('./routes/announcementRoutes');
+const guestQueueDataRoutes = require('./routes/guestQueueDataRoutes'); 
+const guestUserRoutes = require('./routes/guestUserRoutes');
 const connectDB = require('./config/db');
 require('dotenv').config();
 
@@ -107,6 +109,8 @@ app.use('/api/admin/subjects', subjectRoutes);
 app.use('/api/admin/sections', sectionRoutes);
 app.use('/api/admin/strands', strandRoutes);
 app.use('/api/admin/roles', roleRoutes);
+app.use('/api/admin/guestUsers', guestUserRoutes);
+app.use('/api/admin/guestQueueData', guestQueueDataRoutes);
 app.use('/api/admin/system-logs', systemLogRoutes);
 
 // Test route
