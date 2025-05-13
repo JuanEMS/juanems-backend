@@ -25,8 +25,16 @@ const archiveQueueData = async (queueData, exitReason = 'user_left') => {
 
 // Helper function to generate queue numbers
 const generateQueueNumber = async (department) => {
-  // Get the current date in YYYY-MM-DD format for checking archives
-  const today = new Date().toISOString().split('T')[0];
+  // Get the current date in local timezone in YYYY-MM-DD format for checking archives
+  // Use local timezone offset to correctly calculate today's date
+  const now = new Date();
+  const localOffset = now.getTimezoneOffset() * 60000; // offset in milliseconds
+  const localDate = new Date(now.getTime() - localOffset);
+  const today = localDate.toISOString().split('T')[0];
+  
+  console.log(`[Queue Generator] Server date: ${now}`);
+  console.log(`[Queue Generator] Local date for queue generation: ${today}`);
+  console.log(`[Queue Generator] Department: ${department}`);
 
   // Set department prefix
   let queuePrefix = '';
@@ -36,11 +44,22 @@ const generateQueueNumber = async (department) => {
     case 'Accounting': queuePrefix = 'AC'; break;
     default: queuePrefix = department.substring(0, 2).toUpperCase();
   }
+  console.log(`[Queue Generator] Department prefix: ${queuePrefix}`);
 
-  // First, check active queues
-  const lastActiveQueue = await GuestQueueData.findOne({ department })
+  // Calculate the start of today in local timezone
+  const startOfToday = new Date(today + 'T00:00:00Z');
+  console.log(`[Queue Generator] Start of today (local): ${startOfToday.toISOString()}`);
+
+  // FIXED: Check active queues - don't filter by createdAt to catch any active queues
+  // Just filter by department and get the highest queueNumber
+  const lastActiveQueue = await GuestQueueData.findOne({ 
+    department 
+  })
     .sort({ queueNumber: -1 })
     .select('queueNumber');
+
+  console.log(`[Queue Generator] Last active queue:`, lastActiveQueue ? 
+    `Found: ${lastActiveQueue.queueNumber}` : 'No active queues found');
 
   // Then, check archived queues from today
   const lastArchivedQueue = await ArchivedGuestUsers.findOne({
@@ -50,18 +69,30 @@ const generateQueueNumber = async (department) => {
     .sort({ originalQueueNumber: -1 })
     .select('originalQueueNumber');
 
-  // Determine the highest queue number between active and archived
+  console.log(`[Queue Generator] Last archived queue from today:`, lastArchivedQueue ? 
+    `Found: ${lastArchivedQueue.originalQueueNumber}` : 'No archived queues found for today');
+
+  // Determine the highest queue number between active and archived for today
   let lastActiveNumber = lastActiveQueue ?
     parseInt(lastActiveQueue.queueNumber.slice(queuePrefix.length)) || 0 : 0;
+  console.log(`[Queue Generator] Last active number: ${lastActiveNumber}`);
 
   let lastArchivedNumber = lastArchivedQueue ?
     parseInt(lastArchivedQueue.originalQueueNumber.slice(queuePrefix.length)) || 0 : 0;
+  console.log(`[Queue Generator] Last archived number: ${lastArchivedNumber}`);
 
   // Use the maximum value between active and archived numbers
   const lastNumber = Math.max(lastActiveNumber, lastArchivedNumber);
+  console.log(`[Queue Generator] Max of active and archived: ${lastNumber}`);
+
+  // If no records found, start with 1, otherwise increment from last number
+  const nextNumber = lastNumber > 0 ? lastNumber + 1 : 1;
+  console.log(`[Queue Generator] Next queue number: ${nextNumber}`);
+  const fullQueueNumber = `${queuePrefix}${nextNumber}`;
+  console.log(`[Queue Generator] Generated queue number: ${fullQueueNumber}`);
 
   // Return next queue number
-  return `${queuePrefix}${lastNumber + 1}`;
+  return fullQueueNumber;
 };
 
 // Create new queue number
