@@ -28,12 +28,39 @@ const archivedGuestUsersSchema = new mongoose.Schema({
     enum: ['pending', 'accepted', 'completed', 'left', 'rejoined', 'transferred', 'removed_by_admin'],
     required: true
   },
-  createdAt: {
+
+  // Add timing-related fields
+  timestamp: {
+    type: Date,
+    description: 'When the queue was first created'
+  },
+  servingStartTime: {
+    type: Date,
+    description: 'When service for this queue began'
+  },
+  servingEndTime: { 
+    type: Date, 
+    description: 'When service for this queue ended' 
+  },
+  waitingTimeMinutes: { 
+    type: Number, 
+    description: 'Time spent waiting before being served (in minutes)' 
+  },
+  servingTimeMinutes: { 
+    type: Number, 
+    description: 'Time spent being served (in minutes)' 
+  },
+  totalTimeMinutes: { 
+    type: Number, 
+    description: 'Total time in the system (in minutes)' 
+  },
+  
+ 
+  // Archive-specific fields
+    createdAt: {
     type: Date,
     default: Date.now
   },
- 
-  // Archive-specific fields
   archivedAt: {
     type: Date,
     required: true,

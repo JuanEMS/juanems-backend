@@ -7,6 +7,30 @@ const router = express.Router();
 const archiveQueueData = async (queueData, exitReason = 'user_left') => {
   const now = new Date();
   const archiveDate = now.toISOString().split('T')[0];
+  
+  // Calculate all timing metrics
+  let waitingTimeMinutes = null;
+  let servingTimeMinutes = null;
+  let totalTimeMinutes = null;
+  
+  // If original timestamp exists (queue creation time)
+  if (queueData.timestamp) {
+    // Calculate total time in system
+    totalTimeMinutes = (now - new Date(queueData.timestamp)) / (1000 * 60);
+    
+    // If serving start time exists (when queue was accepted)
+    if (queueData.servingStartTime) {
+      // Calculate waiting time (time between creation and start of service)
+      waitingTimeMinutes = (new Date(queueData.servingStartTime) - new Date(queueData.timestamp)) / (1000 * 60);
+      
+      // Calculate serving time (time between start of service and now)
+      servingTimeMinutes = (now - new Date(queueData.servingStartTime)) / (1000 * 60);
+    } else {
+      // If never served, all time is waiting time
+      waitingTimeMinutes = totalTimeMinutes;
+      servingTimeMinutes = 0;
+    }
+  }
 
   const archivedGuest = new ArchivedGuestUsers({
     ...queueData.toObject(),
@@ -16,7 +40,15 @@ const archiveQueueData = async (queueData, exitReason = 'user_left') => {
     exitReason,
     status: exitReason === 'served' ? 'completed' : 'left',
     originalQueueId: queueData._id,
-    originalQueueNumber: queueData.queueNumber // Add this line to fix the validation error
+    originalQueueNumber: queueData.queueNumber,
+    
+    // Preserve all timing information
+    timestamp: queueData.timestamp || queueData.createdAt,
+    servingStartTime: queueData.servingStartTime,
+    servingEndTime: exitReason === 'served' ? now : null,
+    waitingTimeMinutes: waitingTimeMinutes ? waitingTimeMinutes.toFixed(2) : null,
+    servingTimeMinutes: servingTimeMinutes ? servingTimeMinutes.toFixed(2) : null,
+    totalTimeMinutes: totalTimeMinutes ? totalTimeMinutes.toFixed(2) : null
   });
 
   await archivedGuest.save();
@@ -258,18 +290,33 @@ router.put('/finishQueue/:queueNumber', async (req, res) => {
       });
     }
 
-    // Calculate serving time in minutes
-    const servingStartTime = new Date(currentQueue.servingStartTime || currentQueue.createdAt);
-    const servingEndTime = new Date();
-    const servingTimeMinutes = (servingEndTime - servingStartTime) / (1000 * 60);
+    const now = new Date();
+    
+    // Calculate all timing metrics with precision
+    let waitingTimeMinutes = null;
+    let servingTimeMinutes = null;
+    let totalTimeMinutes = null;
+    
+    // Calculate total time in system (from creation to completion)
+    const creationTime = new Date(currentQueue.timestamp || currentQueue.createdAt);
+    totalTimeMinutes = (now - creationTime) / (1000 * 60);
+    
+    // Calculate waiting time (from creation to when service started)
+    const servingStartTime = new Date(currentQueue.servingStartTime || creationTime);
+    waitingTimeMinutes = (servingStartTime - creationTime) / (1000 * 60);
+    
+    // Calculate serving time (from service start to now)
+    servingTimeMinutes = (now - servingStartTime) / (1000 * 60);
 
     // Archive the finished queue with serving time data
     const archivedGuest = await archiveQueueData(currentQueue, 'served');
 
-    // Update the archived record with serving time
+    // Update the archived record with explicit timing information
     await ArchivedGuestUsers.findByIdAndUpdate(archivedGuest._id, {
-      servingEndTime,
+      servingEndTime: now,
+      waitingTimeMinutes: waitingTimeMinutes.toFixed(2),
       servingTimeMinutes: servingTimeMinutes.toFixed(2),
+      totalTimeMinutes: totalTimeMinutes.toFixed(2),
       status: 'completed'
     });
 
@@ -296,23 +343,35 @@ router.put('/finishQueue/:queueNumber', async (req, res) => {
         $group: {
           _id: null,
           totalServed: { $sum: 1 },
-          avgServingTime: { $avg: "$servingTimeMinutes" }
+          avgServingTime: { $avg: "$servingTimeMinutes" },
+          avgWaitingTime: { $avg: "$waitingTimeMinutes" },
+          avgTotalTime: { $avg: "$totalTimeMinutes" }
         }
       }
     ]);
 
-    // Guard against null values for avgServingTime
+    // Guard against null values for stats
     const departmentStats = stats.length > 0 ? {
       totalServed: stats[0].totalServed,
-      avgServingTime: stats[0].avgServingTime ? stats[0].avgServingTime.toFixed(1) : '0.0'
+      avgServingTime: stats[0].avgServingTime ? stats[0].avgServingTime.toFixed(1) : '0.0',
+      avgWaitingTime: stats[0].avgWaitingTime ? stats[0].avgWaitingTime.toFixed(1) : '0.0',
+      avgTotalTime: stats[0].avgTotalTime ? stats[0].avgTotalTime.toFixed(1) : '0.0'
     } : {
       totalServed: 1, // Include the one we just processed
-      avgServingTime: isNaN(servingTimeMinutes) ? '0.0' : servingTimeMinutes.toFixed(1)
+      avgServingTime: servingTimeMinutes.toFixed(1),
+      avgWaitingTime: waitingTimeMinutes.toFixed(1),
+      avgTotalTime: totalTimeMinutes.toFixed(1)
     };
 
     res.json({
       success: true,
       message: 'Queue completed successfully',
+      completedQueue: {
+        queueNumber: currentQueue.queueNumber,
+        waitingTimeMinutes: waitingTimeMinutes.toFixed(2),
+        servingTimeMinutes: servingTimeMinutes.toFixed(2),
+        totalTimeMinutes: totalTimeMinutes.toFixed(2)
+      },
       nextQueue: nextQueue ? {
         queueNumber: nextQueue.queueNumber,
         createdAt: nextQueue.createdAt
