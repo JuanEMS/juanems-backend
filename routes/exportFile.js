@@ -5,6 +5,7 @@ const Account = require('../models/Accounts');
 const Subject = require('../models/Subjects');
 const Strand = require('../models/Strands');
 const SystemLog = require('../models/SystemLog');
+const ArchivedGuestUsers = require('../models/archivedGuestUsers');
 
 router.get('/accounts', async (req, res) => {
   try {
@@ -221,6 +222,57 @@ router.get('/system-logs', async (req, res) => {
   } catch (error) {
     console.error('Export failed:', error);
     res.status(500).json({ error: 'Failed to export system logs' });
+  }
+});
+
+router.get('/queue-history', async (req, res) => {
+  try {
+    // Extract user information from query parameters
+    const { userID, fullName, role } = req.query;
+    const userInfo = {
+      userID: userID || 'Unknown',
+      fullName: fullName || 'Unknown',
+      role: role || 'Unknown'
+    };
+
+    // Fetch archived queue records
+    const queueHistory = await ArchivedGuestUsers.find().lean();
+
+    const currentDate = new Date().toISOString().split('T')[0];
+    const fileName = `archived-queue-history-report-${currentDate}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+    // Add row numbers and format data for PDF
+    const modifiedQueueHistory = queueHistory.map((record, index) => ({
+      __rowNumber: (index + 1).toString(),
+      queueNumber: record.queueNumber || 'N/A',
+      department: record.department || 'N/A',
+      status: record.status || 'N/A',
+      exitReason: record.exitReason || 'N/A',
+      totalTimeMinutes: record.totalTimeMinutes?.toString() || 'N/A',
+      archivedAt: record.archivedAt
+        ? new Date(record.archivedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })
+        : 'N/A',
+    }));
+
+    // Define columns specific to queue history
+    const queueHistoryColumns = [
+      { label: '#', property: '__rowNumber', width: 40 },
+      { label: 'Queue #', property: 'queueNumber', width: 80 },
+      { label: 'Department', property: 'department', width: 70 },
+      { label: 'Status', property: 'status', width: 100 },
+      { label: 'Exit Reason', property: 'exitReason', width: 110 },
+      { label: 'Total Time (min)', property: 'totalTimeMinutes', width: 80 },
+      { label: 'Archived At', property: 'archivedAt', width: 130 },
+    ];
+
+    // Pass the user information to the PDF service
+    pdfService.buildPDF(modifiedQueueHistory, queueHistoryColumns, 'Queue History Report', userInfo, (chunk) => res.write(chunk), () => res.end());
+  } catch (error) {
+    console.error('Export failed:', error);
+    res.status(500).json({ error: 'Failed to export queue history' });
   }
 });
 

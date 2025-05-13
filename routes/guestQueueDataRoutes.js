@@ -745,4 +745,30 @@ router.put('/transferQueue/:queueNumber', async (req, res) => {
   }
 });
 
+// GET endpoint to retrieve archived queue history
+router.get('/queue/archived', async (req, res) => {
+  try {
+    // Query the database for all archived records
+    const archivedRecords = await ArchivedGuestUsers.find({})
+      .select('queueNumber department status exitReason totalTimeMinutes archivedAt')
+      .sort({ archivedAt: -1 }) // Sort by archived date, newest first
+      .lean();
+    
+    // Return the data
+    res.status(200).json({
+      success: true,
+      data: archivedRecords,
+      count: archivedRecords.length
+    });
+    
+  } catch (error) {
+    console.error('Error fetching archived queue history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching archived queue history',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
