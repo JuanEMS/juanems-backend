@@ -2766,3 +2766,125 @@ Payment history updated: {
   "paymentId": "",
   "updatedAt": "2025-05-11T18:38:17.545Z"
 }
+Creating link: {
+  "data": {
+    "attributes": {
+      "amount": 50000,
+      "currency": "PHP",
+      "description": "Exam Fee Payment for 2025-000023",
+      "remarks": "REF-1746991382685-414220"
+    }
+  }
+}
+PayMongo response: Status 200, Body {"data":{"id":"link_h8LZqESW2NxPRD5rnhaBCTi7","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000023","livemode":false,"fee":0,"remarks":"REF-1746991382685-414220","status":"unpaid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/4bEerxb","reference_number":"4bEerxb","created_at":1746991383,"updated_at":1746991383,"payments":[]}}}
+Payment history saved: {
+  "applicantID": "2025-000023",
+  "email": "08lukegrey@gmail.com",
+  "applicantName": "Jungkook Jeon",
+  "paymentMethod": "link",
+  "amount": 500,
+  "description": "Exam Fee Payment",
+  "referenceNumber": "REF-1746991382685-414220",
+  "checkoutId": "link_h8LZqESW2NxPRD5rnhaBCTi7",
+  "status": "pending",
+  "_id": "6820f9176bfae2b16398d140",
+  "createdAt": "2025-05-11T19:23:03.355Z",
+  "__v": 0
+}
+Verify response: Status 200, Body {"data":{"id":"link_h8LZqESW2NxPRD5rnhaBCTi7","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000023","livemode":false,"fee":1250,"remarks":"REF-1746991382685-414220","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/4bEerxb","reference_number":"4bEerxb","created_at":1746991383,"updated_at":1746991383,"payments":[{"data":{"id":"pay_y4Jv2iagp3kiU3NnRQBefUQU","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_LRLnAUUPtkRpLy1HUNfDU1pd","billing":{"address":{"city":"Taguig","country":"PH","line1":"12th floor The Trade and Financial Tower u1206","line2":"32nd street and 7th Avenue","postal_code":"1630","state":"Bonifacio Global City"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Exam Fee Payment for 2025-000023","disputed":false,"external_reference_number":"4bEerxb","fee":1250,"instant_settlement":null,"livemode":false,"net_amount":48750,"origin":"links","payment_intent_id":null,"payout":null,"source":{"id":"src_rTN4ZtrNcAxDMrzvn5igEMbV","type":"gcash","provider":{"id":null},"provider_id":null},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"4bEerxb"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747213200,"created_at":1746991413,"credited_at":1747818000,"paid_at":1746991413,"updated_at":1746991413}}}]}}}
+Applicant updated: 08lukegrey@gmail.com, Description: Exam Fee Payment
+Verify response: Status 200, Body {"data":{"id":"link_h8LZqESW2NxPRD5rnhaBCTi7","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Exam Fee Payment for 2025-000023","livemode":false,"fee":1250,"remarks":"REF-1746991382685-414220","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/4bEerxb","reference_number":"4bEerxb","created_at":1746991383,"updated_at":1746991383,"payments":[{"data":{"id":"pay_y4Jv2iagp3kiU3NnRQBefUQU","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_LRLnAUUPtkRpLy1HUNfDU1pd","billing":{"address":{"city":"Taguig","country":"PH","line1":"12th floor The Trade and Financial Tower u1206","line2":"32nd street and 7th Avenue","postal_code":"1630","state":"Bonifacio Global City"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Exam Fee Payment for 2025-000023","disputed":false,"external_reference_number":"4bEerxb","fee":1250,"instant_settlement":null,"livemode":false,"net_amount":48750,"origin":"links","payment_intent_id":null,"payout":null,"source":{"id":"src_rTN4ZtrNcAxDMrzvn5igEMbV","type":"gcash","provider":{"id":null},"provider_id":null},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"4bEerxb"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747213200,"created_at":1746991413,"credited_at":1747818000,"paid_at":1746991413,"updated_at":1746991413}}}]}}}
+Payment history updated: {
+  "_id": "6820f9176bfae2b16398d140",
+  "applicantID": "2025-000023",
+  "email": "08lukegrey@gmail.com",
+  "applicantName": "Jungkook Jeon",
+  "paymentMethod": "link",
+  "amount": 500,
+  "description": "Exam Fee Payment",
+  "referenceNumber": "REF-1746991382685-414220",
+  "checkoutId": "link_h8LZqESW2NxPRD5rnhaBCTi7",
+  "status": "successful",
+  "createdAt": "2025-05-11T19:23:03.355Z",
+  "__v": 0,
+  "paymentId": "",
+  "updatedAt": "2025-05-11T19:24:05.438Z"
+}
+Applicant updated: 08lukegrey@gmail.com, Description: Exam Fee Payment
+Payment history updated: {
+  "_id": "6820f9176bfae2b16398d140",
+  "applicantID": "2025-000023",
+  "email": "08lukegrey@gmail.com",
+  "applicantName": "Jungkook Jeon",
+  "paymentMethod": "link",
+  "amount": 500,
+  "description": "Exam Fee Payment",
+  "referenceNumber": "REF-1746991382685-414220",
+  "checkoutId": "link_h8LZqESW2NxPRD5rnhaBCTi7",
+  "status": "successful",
+  "createdAt": "2025-05-11T19:23:03.355Z",
+  "__v": 0,
+  "paymentId": "",
+  "updatedAt": "2025-05-11T19:24:05.517Z"
+}
+Creating link: {
+  "data": {
+    "attributes": {
+      "amount": 50000,
+      "currency": "PHP",
+      "description": "Reservation Fee Payment for 2025-000023",
+      "remarks": "REF-1746991669914-88116"
+    }
+  }
+}
+PayMongo response: Status 200, Body {"data":{"id":"link_7CwdeW6zJsbLQQFRp1QpoWb3","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Reservation Fee Payment for 2025-000023","livemode":false,"fee":0,"remarks":"REF-1746991669914-88116","status":"unpaid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/mWH6JRf","reference_number":"mWH6JRf","created_at":1746991671,"updated_at":1746991671,"payments":[]}}}
+Payment history saved: {
+  "applicantID": "2025-000023",
+  "email": "08lukegrey@gmail.com",
+  "applicantName": "Jungkook Jeon",
+  "paymentMethod": "link",
+  "amount": 500,
+  "description": "Reservation Fee Payment",
+  "referenceNumber": "REF-1746991669914-88116",
+  "checkoutId": "link_7CwdeW6zJsbLQQFRp1QpoWb3",
+  "status": "pending",
+  "_id": "6820fa376bfae2b16398d615",
+  "createdAt": "2025-05-11T19:27:51.471Z",
+  "__v": 0
+}
+Verify response: Status 200, Body {"data":{"id":"link_7CwdeW6zJsbLQQFRp1QpoWb3","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Reservation Fee Payment for 2025-000023","livemode":false,"fee":1250,"remarks":"REF-1746991669914-88116","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/mWH6JRf","reference_number":"mWH6JRf","created_at":1746991671,"updated_at":1746991671,"payments":[{"data":{"id":"pay_1UkZDjUAMzXnUPbWxomEfPCq","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_LLnX4bBFKEMDgkbYGoVqUHky","billing":{"address":{"city":"Taguig","country":"PH","line1":"12th floor The Trade and Financial Tower u1206","line2":"32nd street and 7th Avenue","postal_code":"1630","state":"Bonifacio Global City"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Reservation Fee Payment for 2025-000023","disputed":false,"external_reference_number":"mWH6JRf","fee":1250,"instant_settlement":null,"livemode":false,"net_amount":48750,"origin":"links","payment_intent_id":null,"payout":null,"source":{"id":"src_PDxZrkmu5TC9YxCr6BtShpkA","type":"gcash","provider":{"id":null},"provider_id":null},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"mWH6JRf"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747213200,"created_at":1746991698,"credited_at":1747818000,"paid_at":1746991698,"updated_at":1746991698}}}]}}}
+Verify response: Status 200, Body {"data":{"id":"link_7CwdeW6zJsbLQQFRp1QpoWb3","type":"link","attributes":{"amount":50000,"archived":false,"currency":"PHP","description":"Reservation Fee Payment for 2025-000023","livemode":false,"fee":1250,"remarks":"REF-1746991669914-88116","status":"paid","tax_amount":null,"taxes":[],"checkout_url":"https://pm.link/juanems-sjdefi/test/mWH6JRf","reference_number":"mWH6JRf","created_at":1746991671,"updated_at":1746991671,"payments":[{"data":{"id":"pay_1UkZDjUAMzXnUPbWxomEfPCq","type":"payment","attributes":{"access_url":null,"amount":50000,"balance_transaction_id":"bal_txn_LLnX4bBFKEMDgkbYGoVqUHky","billing":{"address":{"city":"Taguig","country":"PH","line1":"12th floor The Trade and Financial Tower u1206","line2":"32nd street and 7th Avenue","postal_code":"1630","state":"Bonifacio Global City"},"email":"08jerseyuzman@gmail.com","name":"Jersey Love Usman","phone":"09682575179"},"currency":"PHP","description":"Reservation Fee Payment for 2025-000023","disputed":false,"external_reference_number":"mWH6JRf","fee":1250,"instant_settlement":null,"livemode":false,"net_amount":48750,"origin":"links","payment_intent_id":null,"payout":null,"source":{"id":"src_PDxZrkmu5TC9YxCr6BtShpkA","type":"gcash","provider":{"id":null},"provider_id":null},"statement_descriptor":"JuanEMS","status":"paid","tax_amount":null,"metadata":{"pm_reference_number":"mWH6JRf"},"promotion":null,"refunds":[],"taxes":[],"available_at":1747213200,"created_at":1746991698,"credited_at":1747818000,"paid_at":1746991698,"updated_at":1746991698}}}]}}}
+Applicant updated: 08lukegrey@gmail.com, Description: Reservation Fee Payment
+Payment history updated: {
+  "_id": "6820fa376bfae2b16398d615",
+  "applicantID": "2025-000023",
+  "email": "08lukegrey@gmail.com",
+  "applicantName": "Jungkook Jeon",
+  "paymentMethod": "link",
+  "amount": 500,
+  "description": "Reservation Fee Payment",
+  "referenceNumber": "REF-1746991669914-88116",
+  "checkoutId": "link_7CwdeW6zJsbLQQFRp1QpoWb3",
+  "status": "successful",
+  "createdAt": "2025-05-11T19:27:51.471Z",
+  "__v": 0,
+  "paymentId": "",
+  "updatedAt": "2025-05-11T19:28:22.818Z"
+}
+Applicant updated: 08lukegrey@gmail.com, Description: Reservation Fee Payment
+Payment history updated: {
+  "_id": "6820fa376bfae2b16398d615",
+  "applicantID": "2025-000023",
+  "email": "08lukegrey@gmail.com",
+  "applicantName": "Jungkook Jeon",
+  "paymentMethod": "link",
+  "amount": 500,
+  "description": "Reservation Fee Payment",
+  "referenceNumber": "REF-1746991669914-88116",
+  "checkoutId": "link_7CwdeW6zJsbLQQFRp1QpoWb3",
+  "status": "successful",
+  "createdAt": "2025-05-11T19:27:51.471Z",
+  "__v": 0,
+  "paymentId": "",
+  "updatedAt": "2025-05-11T19:28:22.868Z"
+}

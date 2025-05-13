@@ -12,6 +12,7 @@ const enrolleeApplicantSchema = new mongoose.Schema({
   academicYear: { type: String, required: true },
   academicTerm: { type: String, required: true },
   academicStrand: { type: String, required: true },
+  approvedAcademicStrand: { type: String, trim: true },
   academicLevel: { type: String, required: true },
   studentID: { type: String, required: true, unique: true },
   applicantID: { type: String, required: true, unique: true },
@@ -165,6 +166,20 @@ const enrolleeApplicantSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+admissionApprovalAdminStatus: {
+    type: String,
+    enum: ['Pending', 'Approved', 'Rejected'],
+    default: 'Pending',
+  },
+  admissionApprovalStatus: {
+    type: String,
+    enum: ['Incomplete', 'Complete'],
+    default: 'Incomplete',
+  },
+  admissionApprovalRejectMessage: {
+    type: String,
+    trim: true,
+  },
 });
 
 // Password hashing pre-save hook
@@ -209,6 +224,56 @@ enrolleeApplicantSchema.pre('save', function (next) {
   }
   next();
 });
+
+enrolleeApplicantSchema.pre('save', function (next) {
+  console.log(`Pre-save hook for ${this.email}:`, {
+    admissionApprovalAdminStatus: this.admissionApprovalAdminStatus,
+    admissionApprovalStatus: this.admissionApprovalStatus,
+    isModified: this.isModified('admissionApprovalAdminStatus'),
+    modifiedPaths: this.modifiedPaths(),
+  });
+
+  // FIX: Ensure status is always synchronized even if not directly modified
+  // This is the main fix for the bug - always set the appropriate status regardless of modification
+  if (this.admissionApprovalAdminStatus === 'Approved') {
+    this.admissionApprovalStatus = 'Complete';
+    this.admissionApprovalRejectMessage = null;
+    console.log(`Set admissionApprovalStatus to Complete for ${this.email}`);
+  } else {
+    this.admissionApprovalStatus = 'Incomplete';
+    if (this.admissionApprovalAdminStatus !== 'Rejected') {
+      this.admissionApprovalRejectMessage = null;
+    }
+    console.log(`Set admissionApprovalStatus to Incomplete for ${this.email}`);
+  }
+  next();
+});
+
+// Post-save hook for debugging
+enrolleeApplicantSchema.post('save', function (doc) {
+  console.log(`Post-save for ${doc.email}:`, {
+    admissionApprovalAdminStatus: doc.admissionApprovalAdminStatus,
+    admissionApprovalStatus: doc.admissionApprovalStatus,
+    admissionApprovalRejectMessage: doc.admissionApprovalRejectMessage,
+  });
+});
+
+// Method to sync admission approval status
+enrolleeApplicantSchema.methods.syncAdmissionApprovalStatus = function () {
+  if (this.admissionApprovalAdminStatus === 'Approved') {
+    this.admissionApprovalStatus = 'Complete';
+    this.admissionApprovalRejectMessage = null;
+  } else {
+    this.admissionApprovalStatus = 'Incomplete';
+    if (this.admissionApprovalAdminStatus !== 'Rejected') {
+      this.admissionApprovalRejectMessage = null;
+    }
+  }
+  console.log(`Manual sync for ${this.email}:`, {
+    admissionApprovalAdminStatus: this.admissionApprovalAdminStatus,
+    admissionApprovalStatus: this.admissionApprovalStatus,
+  });
+};
 
 // Method to check if OTP is valid
 enrolleeApplicantSchema.methods.isOtpValid = function () {

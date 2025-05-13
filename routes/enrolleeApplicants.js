@@ -410,6 +410,7 @@ router.get('/personal-details/:email', async (req, res) => {
       entryLevel: applicant.entryLevel || '',
       academicYear: applicant.academicYear || '',
       academicStrand: applicant.academicStrand || '',
+      approvedAcademicStrand: applicant.approvedAcademicStrand || '',
       academicTerm: applicant.academicTerm || '',
       academicLevel: applicant.academicLevel || '',
       // Step 3: Contact Details
@@ -442,8 +443,8 @@ router.get('/personal-details/:email', async (req, res) => {
       applicantID: applicant.applicantID,
       registrationStatus: applicant.registrationStatus,
       dob: applicant.dob,
-      // Add admissionAdminFirstStatus
       admissionAdminFirstStatus: applicant.admissionAdminFirstStatus || 'On-going',
+      admissionApprovalRejectMessage: applicant.admissionApprovalRejectMessage || '', // Added
     };
 
     console.log(`Personal details fetched for ${cleanEmail}:`, responseData);
@@ -455,6 +456,145 @@ router.get('/personal-details/:email', async (req, res) => {
       message: 'Server error while fetching personal details',
       errorType: 'server_error',
     });
+  }
+});
+
+// Update admission approval status (used by frontend)
+router.post('/update-admission-approval-status', async (req, res) => {
+  try {
+    const { email, admissionApprovalStatus } = req.body;
+
+    if (!sanitizeString(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+    if (!['Incomplete', 'Complete'].includes(admissionApprovalStatus)) {
+      return res.status(400).json({ error: 'Invalid admission approval status' });
+    }
+
+    const applicant = await EnrolleeApplicant.findOneAndUpdate(
+      { email: email.toLowerCase(), status: 'Active' },
+      {
+        $set: {
+          admissionApprovalStatus,
+        },
+      },
+      { new: true }
+    );
+
+    if (!applicant) {
+      return res.status(404).json({ error: 'Active applicant not found' });
+    }
+
+    res.status(200).json({
+      message: 'Admission approval status updated successfully',
+      admissionApprovalStatus: applicant.admissionApprovalStatus,
+    });
+  } catch (err) {
+    console.error('Error updating admission approval status:', err);
+    res.status(500).json({ error: 'Server error while updating admission approval status' });
+  }
+});
+
+router.post('/update-admission-approval-admin', async (req, res) => {
+  try {
+    const { email, admissionApprovalAdminStatus, admissionApprovalRejectMessage } = req.body;
+
+    if (!sanitizeString(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+    if (!['Pending', 'Approved', 'Rejected'].includes(admissionApprovalAdminStatus)) {
+      return res.status(400).json({ error: 'Invalid admission approval admin status' });
+    }
+    if (admissionApprovalAdminStatus === 'Rejected' && !sanitizeString(admissionApprovalRejectMessage)) {
+      return res.status(400).json({ error: 'Rejection message is required for rejected status' });
+    }
+
+    const applicant = await EnrolleeApplicant.findOne({ email: email.toLowerCase(), status: 'Active' });
+    if (!applicant) {
+      return res.status(404).json({ error: 'Active applicant not found' });
+    }
+
+    // Update fields
+    applicant.admissionApprovalAdminStatus = admissionApprovalAdminStatus;
+    
+    // FIX: Explicitly set the admissionApprovalStatus based on the admissionApprovalAdminStatus
+    if (admissionApprovalAdminStatus === 'Approved') {
+      applicant.admissionApprovalStatus = 'Complete';
+      applicant.admissionApprovalRejectMessage = null; // Clear rejection message
+    } else if (admissionApprovalAdminStatus === 'Rejected') {
+      applicant.admissionApprovalStatus = 'Incomplete';
+      applicant.admissionApprovalRejectMessage = admissionApprovalRejectMessage;
+    } else {
+      applicant.admissionApprovalStatus = 'Incomplete';
+      applicant.admissionApprovalRejectMessage = null; // Clear for Pending
+    }
+
+    // Explicitly mark fields as modified to ensure pre-save hook runs
+    applicant.markModified('admissionApprovalAdminStatus');
+    applicant.markModified('admissionApprovalStatus');
+    applicant.markModified('admissionApprovalRejectMessage');
+
+    console.log('Before save:', {
+      email,
+      admissionApprovalAdminStatus: applicant.admissionApprovalAdminStatus,
+      admissionApprovalStatus: applicant.admissionApprovalStatus,
+      admissionApprovalRejectMessage: applicant.admissionApprovalRejectMessage,
+    });
+
+    // Save the document to trigger pre-save hook
+    await applicant.save();
+
+    // Re-fetch to confirm changes
+    const updatedApplicant = await EnrolleeApplicant.findOne({ email: email.toLowerCase(), status: 'Active' });
+
+    console.log('After save:', {
+      email,
+      admissionApprovalAdminStatus: updatedApplicant.admissionApprovalAdminStatus,
+      admissionApprovalStatus: updatedApplicant.admissionApprovalStatus,
+      admissionApprovalRejectMessage: updatedApplicant.admissionApprovalRejectMessage,
+    });
+
+    // FIX: Ensure the response always contains the current statuses
+    res.status(200).json({
+      message: 'Admission approval admin status updated successfully',
+      admissionApprovalAdminStatus: updatedApplicant.admissionApprovalAdminStatus,
+      admissionApprovalStatus: updatedApplicant.admissionApprovalStatus,
+      admissionApprovalRejectMessage: updatedApplicant.admissionApprovalRejectMessage,
+    });
+  } catch (err) {
+    console.error('Error updating admission approval admin status:', err);
+    res.status(500).json({ error: 'Server error while updating admission approval admin status' });
+  }
+});
+
+// Add a fix utility endpoint to ensure statuses are consistent (for admin use)
+router.post('/sync-admission-approval-status', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!sanitizeString(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+
+    const applicant = await EnrolleeApplicant.findOne({ email: email.toLowerCase(), status: 'Active' });
+    if (!applicant) {
+      return res.status(404).json({ error: 'Active applicant not found' });
+    }
+
+    // Manually sync the statuses
+    applicant.syncAdmissionApprovalStatus();
+    
+    // Save changes
+    await applicant.save();
+
+    res.status(200).json({
+      message: 'Admission approval statuses synchronized successfully',
+      admissionApprovalAdminStatus: applicant.admissionApprovalAdminStatus,
+      admissionApprovalStatus: applicant.admissionApprovalStatus,
+    });
+  } catch (err) {
+    console.error('Error syncing admission approval status:', err);
+    res.status(500).json({ error: 'Server error while syncing admission approval status' });
   }
 });
 
@@ -1460,6 +1600,9 @@ router.get('/exam-details/:email', async (req, res) => {
         admissionExamDetailsStatus: applicant.admissionExamDetailsStatus || 'Incomplete',
         approvedExamInterviewResult: applicant.approvedExamInterviewResult || 'Pending',
         examInterviewResultStatus: applicant.examInterviewResultStatus || 'Incomplete',
+        admissionApprovalAdminStatus: applicant.admissionApprovalAdminStatus || 'Pending',
+        admissionApprovalStatus: applicant.admissionApprovalStatus || 'Incomplete',
+        admissionApprovalRejectMessage: applicant.admissionApprovalRejectMessage || '',
         message: 'Exam details are not yet assigned. Application is under review.',
       });
     }
@@ -1470,25 +1613,77 @@ router.get('/exam-details/:email', async (req, res) => {
       admissionExamDetailsStatus: applicant.admissionExamDetailsStatus,
       approvedExamInterviewResult: applicant.approvedExamInterviewResult,
       examInterviewResultStatus: applicant.examInterviewResultStatus,
+      admissionApprovalAdminStatus: applicant.admissionApprovalAdminStatus,
+      admissionApprovalStatus: applicant.admissionApprovalStatus,
+      admissionApprovalRejectMessage: applicant.admissionApprovalRejectMessage,
     });
 
-res.status(200).json({
-  admissionAdminFirstStatus: applicant.admissionAdminFirstStatus || 'On-going',
-  approvedExamDate: applicant.approvedExamDate,
-  approvedExamTime: applicant.approvedExamTime,
-  admissionExamDetailsStatus: applicant.admissionExamDetailsStatus || 'Incomplete',
-  admissionRejectMessage: applicant.admissionRejectMessage || '',
-  approvedExamFeeAmount: applicant.approvedExamFeeAmount,
-  approvedExamFeeStatus: applicant.approvedExamFeeStatus || 'Required',
-  approvedExamRoom: applicant.approvedExamRoom,
-  approvedExamInterviewResult: applicant.approvedExamInterviewResult || 'Pending',
-  examInterviewResultStatus: applicant.examInterviewResultStatus || 'Incomplete',
-  reservationFeePaymentStepStatus: applicant.reservationFeePaymentStepStatus || 'Incomplete',
-  reservationFeeAmountPaid: applicant.reservationFeeAmountPaid || 0,
-});
+    res.status(200).json({
+      admissionAdminFirstStatus: applicant.admissionAdminFirstStatus || 'On-going',
+      approvedExamDate: applicant.approvedExamDate,
+      approvedExamTime: applicant.approvedExamTime,
+      admissionExamDetailsStatus: applicant.admissionExamDetailsStatus || 'Incomplete',
+      admissionRejectMessage: applicant.admissionRejectMessage || '',
+      approvedExamFeeAmount: applicant.approvedExamFeeAmount,
+      approvedExamFeeStatus: applicant.approvedExamFeeStatus || 'Required',
+      approvedExamRoom: applicant.approvedExamRoom,
+      approvedExamInterviewResult: applicant.approvedExamInterviewResult || 'Pending',
+      examInterviewResultStatus: applicant.examInterviewResultStatus || 'Incomplete',
+      reservationFeePaymentStepStatus: applicant.reservationFeePaymentStepStatus || 'Incomplete',
+      reservationFeeAmountPaid: applicant.reservationFeeAmountPaid || 0,
+      admissionApprovalAdminStatus: applicant.admissionApprovalAdminStatus || 'Pending',
+      admissionApprovalStatus: applicant.admissionApprovalStatus || 'Incomplete',
+      admissionApprovalRejectMessage: applicant.admissionApprovalRejectMessage || '',
+    });
   } catch (err) {
     console.error('Error fetching exam details:', err.message, err.stack);
     res.status(500).json({ error: 'Server error while fetching exam details' });
+  }
+});
+
+router.post('/update-reservation-status', async (req, res) => {
+  try {
+    const { email, reservationFeePaymentStepStatus, reservationFeeAmountPaid } = req.body;
+
+    if (!sanitizeString(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+    if (!['Incomplete', 'Complete'].includes(reservationFeePaymentStepStatus)) {
+      return res.status(400).json({ error: 'Invalid reservation fee payment step status' });
+    }
+    if (typeof reservationFeeAmountPaid !== 'number' || reservationFeeAmountPaid < 0) {
+      return res.status(400).json({ error: 'Invalid reservation fee amount' });
+    }
+
+    const updateFields = {
+      reservationFeePaymentStepStatus,
+      reservationFeeAmountPaid,
+    };
+
+    // Set admissionApprovalAdminStatus to Pending when reservation fee is Complete
+    if (reservationFeePaymentStepStatus === 'Complete') {
+      updateFields.admissionApprovalAdminStatus = 'Pending';
+    }
+
+    const applicant = await EnrolleeApplicant.findOneAndUpdate(
+      { email: email.toLowerCase(), status: 'Active' },
+      { $set: updateFields },
+      { new: true }
+    );
+
+    if (!applicant) {
+      return res.status(404).json({ error: 'Active applicant not found' });
+    }
+
+    res.status(200).json({
+      message: 'Reservation payment status updated successfully',
+      reservationFeePaymentStepStatus: applicant.reservationFeePaymentStepStatus,
+      reservationFeeAmountPaid: applicant.reservationFeeAmountPaid,
+      admissionApprovalAdminStatus: applicant.admissionApprovalAdminStatus,
+    });
+  } catch (err) {
+    console.error('Error updating reservation payment status:', err);
+    res.status(500).json({ error: 'Server error while updating reservation payment status' });
   }
 });
 
