@@ -25,7 +25,7 @@ const archivedGuestUsersSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'completed', 'left', 'rejoined', 'removed_by_admin'],
+    enum: ['pending', 'accepted', 'completed', 'left', 'rejoined', 'transferred', 'removed_by_admin'],
     required: true
   },
   createdAt: {
@@ -41,7 +41,7 @@ const archivedGuestUsersSchema = new mongoose.Schema({
   },
   exitReason: {
     type: String,
-    enum: ['served', 'user_left', 'rejoined', 'removed_by_admin', 'other'],
+    enum: ['served', 'user_left', 'rejoined', 'removed_by_admin', 'transferred', 'other'],
     required: true
   },
   archiveDate: {

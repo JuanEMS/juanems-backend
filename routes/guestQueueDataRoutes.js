@@ -31,7 +31,7 @@ const generateQueueNumber = async (department) => {
   const localOffset = now.getTimezoneOffset() * 60000; // offset in milliseconds
   const localDate = new Date(now.getTime() - localOffset);
   const today = localDate.toISOString().split('T')[0];
-  
+
   console.log(`[Queue Generator] Server date: ${now}`);
   console.log(`[Queue Generator] Local date for queue generation: ${today}`);
   console.log(`[Queue Generator] Department: ${department}`);
@@ -52,13 +52,13 @@ const generateQueueNumber = async (department) => {
 
   // FIXED: Check active queues - don't filter by createdAt to catch any active queues
   // Just filter by department and get the highest queueNumber
-  const lastActiveQueue = await GuestQueueData.findOne({ 
-    department 
+  const lastActiveQueue = await GuestQueueData.findOne({
+    department
   })
     .sort({ queueNumber: -1 })
     .select('queueNumber');
 
-  console.log(`[Queue Generator] Last active queue:`, lastActiveQueue ? 
+  console.log(`[Queue Generator] Last active queue:`, lastActiveQueue ?
     `Found: ${lastActiveQueue.queueNumber}` : 'No active queues found');
 
   // Then, check archived queues from today
@@ -69,7 +69,7 @@ const generateQueueNumber = async (department) => {
     .sort({ originalQueueNumber: -1 })
     .select('originalQueueNumber');
 
-  console.log(`[Queue Generator] Last archived queue from today:`, lastArchivedQueue ? 
+  console.log(`[Queue Generator] Last archived queue from today:`, lastArchivedQueue ?
     `Found: ${lastArchivedQueue.originalQueueNumber}` : 'No archived queues found for today');
 
   // Determine the highest queue number between active and archived for today
@@ -612,6 +612,77 @@ router.put('/reintegrateQueue/:queueNumber', async (req, res) => {
   } catch (err) {
     console.error('Error reintegrating queue:', err);
     res.status(500).send('Server Error');
+  }
+});
+
+router.put('/transferQueue/:queueNumber', async (req, res) => {
+  const { queueNumber } = req.params;
+  const {
+    targetDepartment,
+    transferredBy,
+    transferReason = 'Administrative transfer'
+  } = req.body;
+
+  try {
+    const currentQueue = await GuestQueueData.findOne({ queueNumber });
+    if (!currentQueue) {
+      return res.status(404).json({
+        message: 'Queue not found',
+        success: false
+      });
+    }
+
+    const originalDepartment = currentQueue.department;
+    const guestUserId = currentQueue.guestUserId;
+
+    // First create a record of the transfer in the archive
+    const transferRecord = new ArchivedGuestUsers({
+      ...currentQueue.toObject(),
+      _id: undefined, // Let MongoDB create new ID
+      originalQueueNumber: currentQueue.queueNumber,
+      archivedAt: new Date(),
+      archiveDate: new Date().toISOString().split('T')[0],
+      exitReason: 'transferred',
+      transferredTo: targetDepartment,
+      transferredBy,
+      transferReason,
+      status: 'transferred'
+    });
+
+    await transferRecord.save();
+
+    // Delete the current queue BEFORE creating a new one to avoid duplicate key errors
+    await GuestQueueData.deleteOne({ _id: currentQueue._id });
+
+    // Generate a new queue number for the target department
+    const newQueueNumber = await generateQueueNumber(targetDepartment);
+
+    // Create a new queue entry in the target department
+    const newQueue = new GuestQueueData({
+      guestUserId: guestUserId,
+      department: targetDepartment,
+      queueNumber: newQueueNumber,
+      status: 'pending',
+      createdAt: new Date(),
+      transferredFrom: originalDepartment,
+      previousQueueNumber: currentQueue.queueNumber
+    });
+
+    await newQueue.save();
+
+    res.json({
+      success: true,
+      message: `Queue successfully transferred from ${originalDepartment} to ${targetDepartment}`,
+      oldQueueNumber: currentQueue.queueNumber,
+      newQueueNumber: newQueueNumber
+    });
+  } catch (err) {
+    console.error('Error transferring queue:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Error transferring queue',
+      error: err.message
+    });
   }
 });
 
