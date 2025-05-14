@@ -14,6 +14,7 @@ const exportFile = require('./routes/exportFile');
 const announcementRoutes = require('./routes/announcementRoutes');
 const guestQueueDataRoutes = require('./routes/guestQueueDataRoutes'); 
 const guestUserRoutes = require('./routes/guestUserRoutes');
+const enrollmentApprovalRoutes = require('./routes/enrollmentApproval');
 const connectDB = require('./config/db');
 require('dotenv').config();
 
@@ -102,6 +103,7 @@ app.use('/api', pdfRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/pdf', pdfRoutes);
 app.use('/api/enrollment-pdf', pdfRoutes);
+app.use('/api/enrollment-approval', enrollmentApprovalRoutes);
 
 // Admin Routes
 app.use('/api/admin', accountRoutes);

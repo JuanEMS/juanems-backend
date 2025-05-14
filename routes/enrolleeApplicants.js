@@ -1912,14 +1912,15 @@ router.get('/voucher-application/:email', async (req, res) => {
       voucherType: applicant.voucherType,
       voucherRequirements: applicant.voucherRequirements,
       voucherApplicationStatus: applicant.voucherApplicationStatus,
-      enrollmentApprovalAdminStatus: applicant.enrollmentApprovalAdminStatus, // Add this field
+      enrollmentApprovalAdminStatus: applicant.enrollmentApprovalAdminStatus,
+      enrollmentApprovalStatus: applicant.enrollmentApprovalStatus,
+      enrollmentApprovalRejectMessage: applicant.enrollmentApprovalRejectMessage || '',
     });
   } catch (err) {
     console.error('Error fetching voucher application:', err);
     res.status(500).json({ error: 'Server error while fetching voucher application' });
   }
 });
-
 // Fetch voucher file
 router.get('/fetch-voucher-file/:email/:requirementId', async (req, res) => {
   try {

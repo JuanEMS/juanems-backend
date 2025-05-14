@@ -232,6 +232,20 @@ admissionApprovalAdminStatus: {
     enum: ['Pending', 'Approved', 'Rejected'],
     default: 'Pending',
   },
+  enrollmentApprovalAdminStatus: {
+    type: String,
+    enum: ['Pending', 'Approved', 'Rejected'],
+    default: 'Pending',
+  },
+  enrollmentApprovalStatus: {
+    type: String,
+    enum: ['Incomplete', 'Complete'],
+    default: 'Incomplete',
+  },
+  enrollmentApprovalRejectMessage: {
+    type: String,
+    trim: true,
+  },
 });
 
 // Password hashing pre-save hook
@@ -361,6 +375,55 @@ enrolleeApplicantSchema.methods.syncAdmissionApprovalStatus = function () {
   console.log(`Manual sync for ${this.email}:`, {
     admissionApprovalAdminStatus: this.admissionApprovalAdminStatus,
     admissionApprovalStatus: this.admissionApprovalStatus,
+  });
+};
+
+// Pre-save hook for enrollment approval status
+enrolleeApplicantSchema.pre('save', function (next) {
+  console.log(`Pre-save hook for ${this.email}:`, {
+    enrollmentApprovalAdminStatus: this.enrollmentApprovalAdminStatus,
+    enrollmentApprovalStatus: this.enrollmentApprovalStatus,
+    isModified: this.isModified('enrollmentApprovalAdminStatus'),
+    modifiedPaths: this.modifiedPaths(),
+  });
+
+  if (this.enrollmentApprovalAdminStatus === 'Approved') {
+    this.enrollmentApprovalStatus = 'Complete';
+    this.enrollmentApprovalRejectMessage = null;
+    console.log(`Set enrollmentApprovalStatus to Complete for ${this.email}`);
+  } else {
+    this.enrollmentApprovalStatus = 'Incomplete';
+    if (this.enrollmentApprovalAdminStatus !== 'Rejected') {
+      this.enrollmentApprovalRejectMessage = null;
+    }
+    console.log(`Set enrollmentApprovalStatus to Incomplete for ${this.email}`);
+  }
+  next();
+});
+
+// Post-save hook for debugging
+enrolleeApplicantSchema.post('save', function (doc) {
+  console.log(`Post-save for ${doc.email}:`, {
+    enrollmentApprovalAdminStatus: doc.enrollmentApprovalAdminStatus,
+    enrollmentApprovalStatus: doc.enrollmentApprovalStatus,
+    enrollmentApprovalRejectMessage: doc.enrollmentApprovalRejectMessage,
+  });
+});
+
+// Method to sync enrollment approval status
+enrolleeApplicantSchema.methods.syncEnrollmentApprovalStatus = function () {
+  if (this.enrollmentApprovalAdminStatus === 'Approved') {
+    this.enrollmentApprovalStatus = 'Complete';
+    this.enrollmentApprovalRejectMessage = null;
+  } else {
+    this.enrollmentApprovalStatus = 'Incomplete';
+    if (this.enrollmentApprovalAdminStatus !== 'Rejected') {
+      this.enrollmentApprovalRejectMessage = null;
+    }
+  }
+  console.log(`Manual sync for ${this.email}:`, {
+    enrollmentApprovalAdminStatus: this.enrollmentApprovalAdminStatus,
+    enrollmentApprovalStatus: this.enrollmentApprovalStatus,
   });
 };
 
