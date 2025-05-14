@@ -54,10 +54,24 @@ router.post('/create-account', async (req, res) => {
         return res.status(500).json({ message: 'Failed to generate userID' });
       }
     }
+    
+    // Generate actualID from userID if not provided
+    let actualID = req.body.actualID;
+    if (!actualID) {
+      // Extract the numeric part after the first dash
+      const parts = userID.split('-');
+      if (parts.length >= 2) {
+        // Join all parts after the first dash (index 0)
+        actualID = parts.slice(1).join('-');
+      } else {
+        actualID = userID; // Fallback to userID if format is different
+      }
+    }
 
-    // Create the new user with Active status
+    // Create the new user with Pending Verification status
     const newUser = new Accounts({
       userID,
+      actualID,
       firstName,
       middleName,
       lastName,
@@ -774,6 +788,16 @@ router.put('/accounts/:id', async (req, res) => {
       if (userIDExists && userIDExists._id.toString() !== req.params.id) {
         return res.status(409).json({ message: 'User ID already exists.' });
       }
+      
+      // If userID is changing, update actualID too if actualID is not explicitly provided
+      if (!updates.actualID) {
+        // Extract the numeric part after the first dash
+        const parts = userID.split('-');
+        if (parts.length >= 2) {
+          // Join all parts after the first dash (index 0)
+          updates.actualID = parts.slice(1).join('-');
+        }
+      }
     }
 
     if (email && email !== existingAccount.email) {
@@ -879,7 +903,7 @@ router.post('/generate-userid', async (req, res) => {
       'IT (Super Admin)': 'EMP',
       'Administration (Sub-Admin)': 'EMP',
       'Faculty': 'EMP',
-      'Student': 'STD',
+      'Student': 'SDT',
       // Add other roles if needed
     };
 
@@ -929,6 +953,89 @@ router.patch('/archive/:id', async (req, res) => {
   } catch (err) {
     console.error(`Error ${req.body.isArchived ? 'archiving' : 'unarchiving'} account:`, err);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/login-otp-status/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const applicant = await EnrolleeApplicant.findOne({
+      email,
+      status: 'Active'
+    }).sort({ createdAt: -1 });
+
+    if (!applicant) {
+      return res.status(404).json({ message: 'Account not found or not active' });
+    }
+
+    const response = {
+      status: applicant.status,
+      firstName: applicant.firstName,
+      createdAt: applicant.createdAt.toISOString(),
+      isLockedOut: applicant.loginOtpAttemptLockout && applicant.loginOtpAttemptLockout > new Date(),
+      lockoutTimeLeft: applicant.loginOtpAttemptLockout ?
+        Math.ceil((applicant.loginOtpAttemptLockout - new Date()) / 1000) : 0,
+      otpTimeLeft: applicant.loginOtpExpires ?
+        Math.ceil((applicant.loginOtpExpires - new Date()) / 1000) : 0,
+      attemptsLeft: 3 - (applicant.loginOtpAttempts || 0)
+    };
+
+    res.status(200).json(response);
+  } catch (error) {
+    console.error('Error getting login OTP status:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/resend-login-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const applicant = await EnrolleeApplicant.findOne({
+      email,
+      status: 'Active'
+    }).sort({ createdAt: -1 });
+
+    if (!applicant) {
+      return res.status(404).json({ message: 'Account not found or not active' });
+    }
+
+    if (applicant.loginOtpAttemptLockout && applicant.loginOtpAttemptLockout > new Date()) {
+      const minutesLeft = Math.ceil((applicant.loginOtpAttemptLockout - new Date()) / (1000 * 60));
+      return res.status(429).json({
+        message: `Please wait ${minutesLeft} minute(s) before requesting a new OTP.`,
+        lockout: true
+      });
+    }
+
+    const otp = otpGenerator.generate(6, {
+      digits: true,
+      lowerCaseAlphabets: false,
+      upperCaseAlphabets: false,
+      specialChars: false
+    });
+
+    applicant.loginOtp = otp;
+    applicant.loginOtpExpires = new Date(Date.now() + 3 * 60 * 1000);
+    applicant.loginOtpAttempts = 0;
+    applicant.loginOtpAttemptLockout = undefined;
+    applicant.lastLoginOtpAttempt = undefined;
+    await applicant.save();
+
+    await sendOTP(email, applicant.firstName, otp, 'login');
+
+    return res.status(200).json({
+      message: 'New verification code sent to your email',
+      expiresIn: 180
+    });
+  } catch (error) {
+    console.error('Resend login OTP error:', error);
+    return res.status(500).json({ message: 'Server error while resending OTP' });
   }
 });
 

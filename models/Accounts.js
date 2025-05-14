@@ -3,12 +3,13 @@ const bcrypt = require('bcryptjs');
 
 const AccountsSchema = new mongoose.Schema({
   userID: { type: String, required: true, unique: true },
+  actualID: { type: String},
   firstName: { type: String, required: true },
   middleName: { type: String },
   lastName: { type: String, required: true },
   dob: { type: Date }, // optional: user may set it on their own 
-  email: { type: String, required: true, unique: true },
-  mobile: { type: String, required: true, unique: true },
+  email: { type: String, required: true},
+  mobile: { type: String, required: true},
   nationality: { type: String }, // Optional: user may set it on their own
   studentID: { type: String }, // Optional: only for students
   password: { type: String, required: true },
