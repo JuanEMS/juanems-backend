@@ -244,6 +244,24 @@ router.get('/queue-history', async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
 
+    // Helper function to format time in minutes to readable format (similar to frontend)
+    const formatTimeMinutes = (time) => {
+      // Check if time is undefined, null, or not a valid number
+      if (time === undefined || time === null || isNaN(parseFloat(time))) {
+        return 'N/A';
+      }
+      
+      // Convert time to a readable format
+      const minutes = Math.floor(parseFloat(time));
+      const seconds = Math.round((parseFloat(time) - minutes) * 60);
+
+      if (minutes > 0) {
+        return `${minutes}m ${seconds}s`;
+      } else {
+        return `${seconds}s`;
+      }
+    };
+
     // Add row numbers and format data for PDF
     const modifiedQueueHistory = queueHistory.map((record, index) => ({
       __rowNumber: (index + 1).toString(),
@@ -251,7 +269,10 @@ router.get('/queue-history', async (req, res) => {
       department: record.department || 'N/A',
       status: record.status || 'N/A',
       exitReason: record.exitReason || 'N/A',
-      totalTimeMinutes: record.totalTimeMinutes?.toString() || 'N/A',
+      // Format time values for better readability
+      waitingTimeMinutes: formatTimeMinutes(record.waitingTimeMinutes),
+      servingTimeMinutes: formatTimeMinutes(record.servingTimeMinutes),
+      totalTimeMinutes: formatTimeMinutes(record.totalTimeMinutes),
       archivedAt: record.archivedAt
         ? new Date(record.archivedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })
         : 'N/A',
@@ -261,10 +282,12 @@ router.get('/queue-history', async (req, res) => {
     const queueHistoryColumns = [
       { label: '#', property: '__rowNumber', width: 40 },
       { label: 'Queue #', property: 'queueNumber', width: 80 },
-      { label: 'Department', property: 'department', width: 70 },
-      { label: 'Status', property: 'status', width: 100 },
-      { label: 'Exit Reason', property: 'exitReason', width: 110 },
-      { label: 'Total Time (min)', property: 'totalTimeMinutes', width: 80 },
+      { label: 'Department', property: 'department', width: 80 },
+      { label: 'Status', property: 'status', width: 70 },
+      { label: 'Exit Reason', property: 'exitReason', width: 90 },
+      { label: 'Waiting Time', property: 'waitingTimeMinutes', width: 70 },
+      { label: 'Serving Time', property: 'servingTimeMinutes', width: 60 },
+      { label: 'Total Time', property: 'totalTimeMinutes', width: 70 },
       { label: 'Archived At', property: 'archivedAt', width: 130 },
     ];
 

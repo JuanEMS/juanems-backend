@@ -6,7 +6,8 @@ const router = express.Router();
 // Helper function to archive queue data
 const archiveQueueData = async (queueData, exitReason = 'user_left') => {
   const now = new Date();
-  const archiveDate = now.toISOString().split('T')[0];
+  // Format date in local timezone (YYYY-MM-DD)
+  const localDate = now.toLocaleDateString('en-CA'); // en-CA formats as YYYY-MM-DD
   
   // Calculate all timing metrics
   let waitingTimeMinutes = null;
@@ -36,7 +37,7 @@ const archiveQueueData = async (queueData, exitReason = 'user_left') => {
     ...queueData.toObject(),
     _id: undefined, // Let MongoDB create new ID
     archivedAt: now,
-    archiveDate,
+    archiveDate: localDate,  // Use local date format
     exitReason,
     status: exitReason === 'served' ? 'completed' : 'left',
     originalQueueId: queueData._id,
@@ -57,15 +58,12 @@ const archiveQueueData = async (queueData, exitReason = 'user_left') => {
 
 // Helper function to generate queue numbers
 const generateQueueNumber = async (department) => {
-  // Get the current date in local timezone in YYYY-MM-DD format for checking archives
-  // Use local timezone offset to correctly calculate today's date
+  // Get the current date in local timezone in YYYY-MM-DD format
   const now = new Date();
-  const localOffset = now.getTimezoneOffset() * 60000; // offset in milliseconds
-  const localDate = new Date(now.getTime() - localOffset);
-  const today = localDate.toISOString().split('T')[0];
-
+  const localDate = now.toLocaleDateString('en-CA'); // en-CA formats as YYYY-MM-DD
+  
   console.log(`[Queue Generator] Server date: ${now}`);
-  console.log(`[Queue Generator] Local date for queue generation: ${today}`);
+  console.log(`[Queue Generator] Local date for queue generation: ${localDate}`);
   console.log(`[Queue Generator] Department: ${department}`);
 
   // Set department prefix
@@ -78,12 +76,7 @@ const generateQueueNumber = async (department) => {
   }
   console.log(`[Queue Generator] Department prefix: ${queuePrefix}`);
 
-  // Calculate the start of today in local timezone
-  const startOfToday = new Date(today + 'T00:00:00Z');
-  console.log(`[Queue Generator] Start of today (local): ${startOfToday.toISOString()}`);
-
-  // FIXED: Check active queues - don't filter by createdAt to catch any active queues
-  // Just filter by department and get the highest queueNumber
+  // Find active queues for the department
   const lastActiveQueue = await GuestQueueData.findOne({
     department
   })
@@ -93,28 +86,58 @@ const generateQueueNumber = async (department) => {
   console.log(`[Queue Generator] Last active queue:`, lastActiveQueue ?
     `Found: ${lastActiveQueue.queueNumber}` : 'No active queues found');
 
-  // Then, check archived queues from today
-  const lastArchivedQueue = await ArchivedGuestUsers.findOne({
+  // Find all archived queues from today first
+  const allArchivedFromToday = await ArchivedGuestUsers.find({
     department,
-    archiveDate: today
+    archiveDate: localDate
   })
-    .sort({ originalQueueNumber: -1 })
-    .select('originalQueueNumber');
-
-  console.log(`[Queue Generator] Last archived queue from today:`, lastArchivedQueue ?
-    `Found: ${lastArchivedQueue.originalQueueNumber}` : 'No archived queues found for today');
+    .select('originalQueueNumber queueNumber status');
+  
+  console.log(`[Queue Generator] All archived queues from today:`, 
+    allArchivedFromToday.length ? 
+      JSON.stringify(allArchivedFromToday.map(q => ({
+        originalQueueNumber: q.originalQueueNumber, 
+        queueNumber: q.queueNumber,
+        status: q.status
+      }))) : 
+      'None found');
+  
+  // Find the highest numeric queue number by manually parsing them
+  let highestArchivedQueue = null;
+  let highestArchivedNumber = 0;
+  
+  for (const queue of allArchivedFromToday) {
+    const queueNumStr = queue.originalQueueNumber;
+    const numericPart = parseInt(queueNumStr.replace(queuePrefix, ''));
+    
+    if (!isNaN(numericPart) && numericPart > highestArchivedNumber) {
+      highestArchivedNumber = numericPart;
+      highestArchivedQueue = queue;
+    }
+  }
+  
+  console.log(`[Queue Generator] Last archived queue from today:`, highestArchivedQueue ?
+    `Found: ${highestArchivedQueue.originalQueueNumber} (numeric value: ${highestArchivedNumber})` : 'No archived queues found for today');
+    
+  console.log(`[Queue Generator] All archived queues from today:`, 
+    allArchivedFromToday.length ? 
+      JSON.stringify(allArchivedFromToday.map(q => ({
+        originalQueueNumber: q.originalQueueNumber, 
+        queueNumber: q.queueNumber,
+        status: q.status
+      }))) : 
+      'None found');
 
   // Determine the highest queue number between active and archived for today
   let lastActiveNumber = lastActiveQueue ?
-    parseInt(lastActiveQueue.queueNumber.slice(queuePrefix.length)) || 0 : 0;
+    parseInt(lastActiveQueue.queueNumber.replace(queuePrefix, '')) || 0 : 0;
   console.log(`[Queue Generator] Last active number: ${lastActiveNumber}`);
 
-  let lastArchivedNumber = lastArchivedQueue ?
-    parseInt(lastArchivedQueue.originalQueueNumber.slice(queuePrefix.length)) || 0 : 0;
-  console.log(`[Queue Generator] Last archived number: ${lastArchivedNumber}`);
+  // Use the highest archived number we found
+  console.log(`[Queue Generator] Last archived number: ${highestArchivedNumber}`);
 
   // Use the maximum value between active and archived numbers
-  const lastNumber = Math.max(lastActiveNumber, lastArchivedNumber);
+  const lastNumber = Math.max(lastActiveNumber, highestArchivedNumber);
   console.log(`[Queue Generator] Max of active and archived: ${lastNumber}`);
 
   // If no records found, start with 1, otherwise increment from last number
@@ -127,7 +150,6 @@ const generateQueueNumber = async (department) => {
   return fullQueueNumber;
 };
 
-// Create new queue number
 router.post('/create', async (req, res) => {
   const { guestUserId, department } = req.body;
 
@@ -172,7 +194,6 @@ router.post('/create', async (req, res) => {
 router.post('/archive', async (req, res) => {
   try {
     const { queueNumber, originalQueueNumber, exitReason = 'user_left', guestUserId } = req.body;
-
     // Find the active queue record
     const guestData = await GuestQueueData.findOne({
       $or: [
@@ -180,25 +201,28 @@ router.post('/archive', async (req, res) => {
         { guestUserId }
       ]
     });
-
     if (!guestData) {
       return res.status(404).json({ message: 'Queue data not found' });
     }
-
+    
+    // Get the current date in local timezone
     const now = new Date();
+    // Format date in local timezone (YYYY-MM-DD)
+    const localDate = now.toLocaleDateString('en-CA'); // en-CA formats as YYYY-MM-DD
+    
     const archivedGuest = new ArchivedGuestUsers({
       ...guestData.toObject(),
       queueNumber, // This is the unique version with timestamp
       originalQueueNumber: guestData.queueNumber, // Make sure this is set
       archivedAt: now,
-      archiveDate: now.toISOString().split('T')[0],
+      archiveDate: localDate, // Using localDate instead of UTC date
       exitReason,
       status: 'left'
     });
-
+    
     await archivedGuest.save();
-    await GuestQueueData.deleteOne({ _id: guestData._id });
-
+    await GuestQueueData.deleteOne({ _id: guestData._id }); // Fixed typo in property name
+    
     res.status(201).json({
       message: 'Guest data archived successfully',
       data: archivedGuest
@@ -277,7 +301,7 @@ router.get('/status/:queueNumber', async (req, res) => {
   }
 });
 
-// Finish current queue and move to next
+// Updated finishQueue route
 router.put('/finishQueue/:queueNumber', async (req, res) => {
   const { queueNumber } = req.params;
 
@@ -291,6 +315,8 @@ router.put('/finishQueue/:queueNumber', async (req, res) => {
     }
 
     const now = new Date();
+    // Get local date for stats calculation
+    const localDate = now.toLocaleDateString('en-CA'); // en-CA formats as YYYY-MM-DD
     
     // Calculate all timing metrics with precision
     let waitingTimeMinutes = null;
@@ -330,12 +356,11 @@ router.put('/finishQueue/:queueNumber', async (req, res) => {
     }).sort({ createdAt: 1 });  // Sort by creation time to ensure FIFO
 
     // Calculate department stats and return them
-    const today = new Date().toISOString().split('T')[0];
     const stats = await ArchivedGuestUsers.aggregate([
       {
         $match: {
           department: currentQueue.department,
-          archiveDate: today,
+          archiveDate: localDate,  // Use local date
           status: 'completed'
         }
       },
@@ -474,22 +499,39 @@ router.put('/acceptQueue/:queueNumber', async (req, res) => {
   }
 });
 
+// Updated statistics route
 router.get('/statistics', async (req, res) => {
   const { department, date } = req.query;
-
+  
   if (!department) {
     return res.status(400).json({ message: 'Department is required' });
   }
-
+  
   try {
-    const queryDate = date || new Date().toISOString().split('T')[0];
-
+    // Handle date parameter more robustly
+    let queryDate;
+    
+    if (date) {
+      // Validate the date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(date)) {
+        return res.status(400).json({ message: 'Invalid date format. Please use YYYY-MM-DD' });
+      }
+      queryDate = date;
+    } else {
+      // Default to today's date in local format
+      const now = new Date();
+      queryDate = now.toLocaleDateString('en-CA'); // en-CA formats as YYYY-MM-DD
+      console.log(`No date provided, using local date: ${queryDate}`);
+    }
+    
     // Get statistics from archived guests
+    console.log(`Fetching statistics for department: ${department}, date: ${queryDate}`);
     const stats = await ArchivedGuestUsers.aggregate([
       {
         $match: {
           department,
-          archiveDate: queryDate,
+          archiveDate: { $eq: queryDate }, // Explicit equality check
           status: 'completed'
         }
       },
@@ -501,26 +543,61 @@ router.get('/statistics', async (req, res) => {
         }
       }
     ]);
-
+    console.log(`Found ${stats.length > 0 ? stats[0].totalServed : 0} completed entries for ${queryDate}`);
+    
     // Get current pending queue count
     const pendingCount = await GuestQueueData.countDocuments({
       department,
       status: 'pending'
     });
-
+    
     // Get current accepted queue (if any)
     const currentlyServing = await GuestQueueData.findOne({
       department,
       status: 'accepted'
     });
-
+    
+    // Additional date-based metrics using local date
+    // For the beginning of the week, use date manipulation on client-side date
+    const weekStartDate = new Date(queryDate);
+    weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay()); // Start of week (Sunday)
+    const weekStart = weekStartDate.toLocaleDateString('en-CA'); // Format as YYYY-MM-DD
+    
+    const weeklyStats = await ArchivedGuestUsers.aggregate([
+      {
+        $match: {
+          department,
+          archiveDate: {
+            $gte: weekStart,
+            $lte: queryDate
+          },
+          status: 'completed'
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          weeklyCount: { $sum: 1 },
+          weeklyAvgTime: { $avg: "$servingTimeMinutes" }
+        }
+      }
+    ]);
+    console.log(`Found ${weeklyStats.length > 0 ? weeklyStats[0].weeklyCount : 0} completed entries for the week`);
+    
     res.json({
+      date: queryDate,
       totalServed: stats.length > 0 ? stats[0].totalServed : 0,
-      avgServingTime: stats.length > 0 ? stats[0].avgServingTime.toFixed(1) : '0.0',
+      avgServingTime: stats.length > 0 ? parseFloat(stats[0].avgServingTime.toFixed(1)) : 0.0,
       pendingCount,
+      weeklyTotalServed: weeklyStats.length > 0 ? weeklyStats[0].weeklyCount : 0,
+      weeklyAvgServingTime: weeklyStats.length > 0 ? parseFloat(weeklyStats[0].weeklyAvgTime.toFixed(1)) : 0.0,
       currentlyServing: currentlyServing ? {
         queueNumber: currentlyServing.queueNumber,
-        servingStartTime: currentlyServing.servingStartTime
+        servingStartTime: currentlyServing.servingStartTime,
+        // Calculate estimated remaining time based on average serving time
+        estimatedRemainingMinutes: stats.length > 0 ? 
+          Math.max(0, Math.round(stats[0].avgServingTime - 
+            ((new Date() - new Date(currentlyServing.servingStartTime)) / 60000))) : null
       } : null
     });
   } catch (err) {
@@ -545,17 +622,49 @@ router.delete('/removeQueue/:queueNumber', async (req, res) => {
       return res.status(404).json({ message: 'Queue data not found' });
     }
 
-    // Archive then delete with specific exit reason and admin metadata
+    const now = new Date();
+    // Format date in local timezone (YYYY-MM-DD)
+    const localDate = now.toLocaleDateString('en-CA'); // en-CA formats as YYYY-MM-DD
+    
+    // Calculate all timing metrics with precision
+    let waitingTimeMinutes = null;
+    let servingTimeMinutes = null;
+    let totalTimeMinutes = null;
+    
+    // Calculate total time in system (from creation to removal)
+    const creationTime = new Date(guestData.timestamp || guestData.createdAt);
+    totalTimeMinutes = (now - creationTime) / (1000 * 60);
+    
+    // Calculate waiting time (from creation to when service started, if applicable)
+    if (guestData.servingStartTime) {
+      const servingStartTime = new Date(guestData.servingStartTime);
+      waitingTimeMinutes = (servingStartTime - creationTime) / (1000 * 60);
+      
+      // Calculate serving time (from service start to now)
+      servingTimeMinutes = (now - servingStartTime) / (1000 * 60);
+    } else {
+      // If never served, all time is waiting time
+      waitingTimeMinutes = totalTimeMinutes;
+      servingTimeMinutes = 0;
+    }
+
+    // Archive then delete with specific exit reason, admin metadata, and timing information
     const archivedGuest = new ArchivedGuestUsers({
       ...guestData.toObject(),
-      queueNumber: `${guestData.queueNumber}-removed`, // Add timestamp indicator
+      _id: undefined, // Let MongoDB create new ID
+      queueNumber: `${guestData.queueNumber}`, 
       originalQueueNumber: guestData.queueNumber,
-      archivedAt: new Date(),
-      archiveDate: new Date().toISOString().split('T')[0],
+      archivedAt: now,
+      archiveDate: localDate, // Use local date format
       exitReason: 'removed_by_admin',
       status: 'removed_by_admin',
       removedBy,
-      removalReason
+      removalReason,
+      // Add timing data
+      servingEndTime: now,
+      waitingTimeMinutes: waitingTimeMinutes ? waitingTimeMinutes.toFixed(2) : null,
+      servingTimeMinutes: servingTimeMinutes ? servingTimeMinutes.toFixed(2) : null,
+      totalTimeMinutes: totalTimeMinutes ? totalTimeMinutes.toFixed(2) : null
     });
 
     await archivedGuest.save();
@@ -572,7 +681,12 @@ router.delete('/removeQueue/:queueNumber', async (req, res) => {
       data: {
         removedQueue: guestData,
         remainingQueueCount: remainingQueues.length,
-        nextQueue: remainingQueues.length > 0 ? remainingQueues[0] : null
+        nextQueue: remainingQueues.length > 0 ? remainingQueues[0] : null,
+        timingInfo: {
+          waitingTimeMinutes: waitingTimeMinutes ? waitingTimeMinutes.toFixed(2) : null,
+          servingTimeMinutes: servingTimeMinutes ? servingTimeMinutes.toFixed(2) : null,
+          totalTimeMinutes: totalTimeMinutes ? totalTimeMinutes.toFixed(2) : null
+        }
       }
     });
   } catch (error) {
@@ -694,18 +808,48 @@ router.put('/transferQueue/:queueNumber', async (req, res) => {
     const originalDepartment = currentQueue.department;
     const guestUserId = currentQueue.guestUserId;
 
-    // First create a record of the transfer in the archive
+    const now = new Date();
+    const localDate = now.toLocaleDateString('en-CA'); // en-CA formats as YYYY-MM-DD
+
+    // Calculate all timing metrics with precision
+    let waitingTimeMinutes = null;
+    let servingTimeMinutes = null;
+    let totalTimeMinutes = null;
+    
+    // Calculate total time in system (from creation to transfer)
+    const creationTime = new Date(currentQueue.timestamp || currentQueue.createdAt);
+    totalTimeMinutes = (now - creationTime) / (1000 * 60);
+    
+    // Calculate waiting time (from creation to when service started, if applicable)
+    if (currentQueue.servingStartTime) {
+      const servingStartTime = new Date(currentQueue.servingStartTime);
+      waitingTimeMinutes = (servingStartTime - creationTime) / (1000 * 60);
+      
+      // Calculate serving time (from service start to now)
+      servingTimeMinutes = (now - servingStartTime) / (1000 * 60);
+    } else {
+      // If never served, all time is waiting time
+      waitingTimeMinutes = totalTimeMinutes;
+      servingTimeMinutes = 0;
+    }
+
+    // First create a record of the transfer in the archive with timing information
     const transferRecord = new ArchivedGuestUsers({
       ...currentQueue.toObject(),
       _id: undefined, // Let MongoDB create new ID
       originalQueueNumber: currentQueue.queueNumber,
-      archivedAt: new Date(),
-      archiveDate: new Date().toISOString().split('T')[0],
+      archivedAt: now,
+      archiveDate: localDate, // Use local date format
       exitReason: 'transferred',
       transferredTo: targetDepartment,
       transferredBy,
       transferReason,
-      status: 'transferred'
+      status: 'transferred',
+      // Add timing data
+      servingEndTime: now,
+      waitingTimeMinutes: waitingTimeMinutes ? waitingTimeMinutes.toFixed(2) : null,
+      servingTimeMinutes: servingTimeMinutes ? servingTimeMinutes.toFixed(2) : null,
+      totalTimeMinutes: totalTimeMinutes ? totalTimeMinutes.toFixed(2) : null
     });
 
     await transferRecord.save();
@@ -733,7 +877,12 @@ router.put('/transferQueue/:queueNumber', async (req, res) => {
       success: true,
       message: `Queue successfully transferred from ${originalDepartment} to ${targetDepartment}`,
       oldQueueNumber: currentQueue.queueNumber,
-      newQueueNumber: newQueueNumber
+      newQueueNumber: newQueueNumber,
+      timingInfo: {
+        waitingTimeMinutes: waitingTimeMinutes ? waitingTimeMinutes.toFixed(2) : null,
+        servingTimeMinutes: servingTimeMinutes ? servingTimeMinutes.toFixed(2) : null,
+        totalTimeMinutes: totalTimeMinutes ? totalTimeMinutes.toFixed(2) : null
+      }
     });
   } catch (err) {
     console.error('Error transferring queue:', err);
@@ -745,16 +894,25 @@ router.put('/transferQueue/:queueNumber', async (req, res) => {
   }
 });
 
-// GET endpoint to retrieve archived queue history
+// Updated archived queue history route with department filtering
 router.get('/queue/archived', async (req, res) => {
   try {
-    // Query the database for all archived records
-    const archivedRecords = await ArchivedGuestUsers.find({})
-      .select('queueNumber department status exitReason totalTimeMinutes archivedAt')
-      .sort({ archivedAt: -1 }) // Sort by archived date, newest first
+    const { department } = req.query;
+    
+    // Create a filter object
+    let filter = {};
+    
+    // If department is provided and not 'IT' or 'Administration', filter by department
+    if (department && !['IT', 'Administration'].includes(department)) {
+      filter.department = department;
+    }
+    
+    // Query the database with the filter
+    const archivedRecords = await ArchivedGuestUsers.find(filter)
+      .select('queueNumber department status exitReason waitingTimeMinutes servingTimeMinutes totalTimeMinutes archivedAt archiveDate')
+      .sort({ archivedAt: -1 })
       .lean();
     
-    // Return the data
     res.status(200).json({
       success: true,
       data: archivedRecords,
