@@ -1,69 +1,22 @@
 const mongoose = require('mongoose');
 
 const paymentHistorySchema = new mongoose.Schema({
-  applicantID: {
-    type: String,
-    required: true,
-    index: true,
-  },
-  email: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  applicantName: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  paymentMethod: {
-    type: String,
-    enum: ['link', 'card', 'gcash'],
-    required: true,
-  },
-  amount: {
-    type: Number,
-    required: true,
-  },
-  currency: {
-    type: String,
-    default: 'PHP',
-  },
+  applicantID: { type: String, required: true },
+  email: { type: String, required: true, trim: true },
+  applicantName: { type: String, required: true },
+  paymentMethod: { type: String, required: true },
+  amount: { type: Number, required: true },
+  description: { type: String, required: true },
+  referenceNumber: { type: String, required: true, unique: true },
+  checkoutId: { type: String, required: true, unique: true },
+  paymentId: { type: String },
   status: {
     type: String,
-    enum: ['pending', 'successful', 'failed', 'expired', 'cancelled'],
+    enum: ['pending', 'successful', 'failed', 'cancelled', 'expired'],
     default: 'pending',
   },
-  referenceNumber: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  checkoutId: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  paymentId: {
-    type: String,
-  },
-  description: {
-    type: String,
-    default: 'Exam Fee Payment',
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-  },
-});
-
-// Update updatedAt on save
-paymentHistorySchema.pre('save', function (next) {
-  this.updatedAt = Date.now();
-  next();
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date },
 });
 
 module.exports = mongoose.model('PaymentHistory', paymentHistorySchema);
