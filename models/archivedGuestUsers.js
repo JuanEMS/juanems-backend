@@ -1,0 +1,189 @@
+const mongoose = require('mongoose');
+
+const archivedGuestUsersSchema = new mongoose.Schema({
+  // Original queue data fields
+  guestUserId: {
+    type: String,
+    required: true,
+    index: true
+  },
+  department: {
+    type: String,
+    required: true,
+    enum: ['Admissions', 'Registrar', 'Accounting'],
+    index: true
+  },
+  queueNumber: {
+    type: String,
+    required: true,
+    index: true
+  },
+  originalQueueNumber: {
+    type: String,
+    required: true,
+    index: true
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'accepted', 'completed', 'left', 'rejoined', 'transferred', 'removed_by_admin'],
+    required: true
+  },
+
+  // Add timing-related fields
+  timestamp: {
+    type: Date,
+    description: 'When the queue was first created'
+  },
+  servingStartTime: {
+    type: Date,
+    description: 'When service for this queue began'
+  },
+  servingEndTime: { 
+    type: Date, 
+    description: 'When service for this queue ended' 
+  },
+  waitingTimeMinutes: { 
+    type: Number, 
+    description: 'Time spent waiting before being served (in minutes)' 
+  },
+  servingTimeMinutes: { 
+    type: Number, 
+    description: 'Time spent being served (in minutes)' 
+  },
+  totalTimeMinutes: { 
+    type: Number, 
+    description: 'Total time in the system (in minutes)' 
+  },
+  
+ 
+  // Archive-specific fields
+    createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  archivedAt: {
+    type: Date,
+    required: true,
+    default: Date.now
+  },
+  exitReason: {
+    type: String,
+    enum: ['served', 'user_left', 'rejoined', 'removed_by_admin', 'transferred', 'other'],
+    required: true
+  },
+  archiveDate: {
+    type: String,
+    required: true,
+    index: true,
+    validate: {
+      validator: function(v) {
+        return /^\d{4}-\d{2}-\d{2}$/.test(v);
+      },
+      message: props => `${props.value} is not a valid date format (YYYY-MM-DD)!`
+    }
+  },
+  originalQueueId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'GuestQueueData',
+    index: true
+  },
+  uniqueArchiveId: {
+    type: String,
+    unique: true,
+    index: true
+  },
+  // Additional metadata for admin removal
+  removedBy: {
+    type: String,
+    description: 'Admin ID or username who removed the queue'
+  },
+  removalReason: {
+    type: String,
+    description: 'Reason for removing the queue'
+  }
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+// Pre-save hook to set default values and ensure data consistency
+archivedGuestUsersSchema.pre('save', function(next) {
+  // Set archiveDate if not provided
+  if (!this.archiveDate) {
+    const date = this.archivedAt || new Date();
+    this.archiveDate = date.toISOString().split('T')[0];
+  }
+  
+  // Generate uniqueArchiveId if not provided
+  if (!this.uniqueArchiveId) {
+    const timestamp = this.archivedAt?.getTime() || Date.now();
+    this.uniqueArchiveId = `${this.queueNumber}-${timestamp}`;
+  }
+  
+  // Ensure originalQueueNumber is set
+  if (!this.originalQueueNumber && this.queueNumber) {
+    // Extract the original queue number by removing any timestamp suffix
+    this.originalQueueNumber = this.queueNumber.split('-')[0];
+  }
+  
+  // Set status based on exitReason if not provided
+  if (!this.status) {
+    switch(this.exitReason) {
+      case 'served':
+        this.status = 'completed';
+        break;
+      case 'removed_by_admin':
+        this.status = 'removed_by_admin';
+        break;
+      case 'rejoined':
+        this.status = 'left';
+        break;
+      default:
+        this.status = 'left';
+    }
+  }
+  
+  next();
+});
+
+// Virtual for formatted archived date
+archivedGuestUsersSchema.virtual('formattedArchivedAt').get(function() {
+  return this.archivedAt?.toLocaleString() || '';
+});
+
+// Virtual for display queue number (shows original without timestamp)
+archivedGuestUsersSchema.virtual('displayQueueNumber').get(function() {
+  return this.originalQueueNumber || this.queueNumber?.split('-')[0];
+});
+
+// Indexes for optimized queries
+archivedGuestUsersSchema.index({
+  originalQueueNumber: 1,
+  archiveDate: 1
+});
+
+archivedGuestUsersSchema.index({
+  guestUserId: 1,
+  archivedAt: -1
+});
+
+archivedGuestUsersSchema.index({
+  department: 1,
+  archivedAt: -1
+});
+
+// Compound index for common query patterns
+archivedGuestUsersSchema.index({
+  department: 1,
+  status: 1,
+  archivedAt: -1
+});
+
+// Text index for searching
+archivedGuestUsersSchema.index({
+  originalQueueNumber: 'text',
+  guestUserId: 'text'
+});
+
+module.exports = mongoose.model('ArchivedGuestUsers', archivedGuestUsersSchema);
