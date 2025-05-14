@@ -137,7 +137,7 @@ router.post('/save-admission-requirements', upload.any(), async (req, res) => {
     console.log('Constructed admissionRequirements:', admissionRequirements);
 
     // Validate that all requirements have valid data
-    const invalidReqs = admissionRequirements.filter(req => 
+    const invalidReqs = admissionRequirements.filter(req =>
       req.status === 'Submitted' && (!req.fileContent || !req.fileType || !req.fileName)
     );
     if (invalidReqs.length > 0) {
@@ -147,10 +147,10 @@ router.post('/save-admission-requirements', upload.any(), async (req, res) => {
     applicant.admissionRequirements = admissionRequirements;
 
     // Update status: Complete if all requirements are Submitted, Verified, or Waived
-    const allComplete = admissionRequirements.every(req => 
+    const allComplete = admissionRequirements.every(req =>
       req.status === 'Submitted' || req.status === 'Verified' || req.status === 'Waived'
     );
-    const allAddressed = admissionRequirements.every(req => 
+    const allAddressed = admissionRequirements.every(req =>
       req.status !== 'Not Submitted'
     );
 
@@ -198,11 +198,11 @@ router.get('/fetch-admission-file/:email/:requirementId', async (req, res) => {
     const cleanEmail = email.trim().toLowerCase();
     const reqId = parseInt(requirementId);
 
-    const applicant = await EnrolleeApplicant.findOne({ 
-      email: cleanEmail, 
-      status: 'Active' 
+    const applicant = await EnrolleeApplicant.findOne({
+      email: cleanEmail,
+      status: 'Active'
     });
-    
+
     if (!applicant) {
       return res.status(404).json({ error: 'Active applicant not found' });
     }
@@ -210,13 +210,13 @@ router.get('/fetch-admission-file/:email/:requirementId', async (req, res) => {
     const requirement = applicant.admissionRequirements.find(
       req => req.requirementId === reqId
     );
-    
+
     if (!requirement || !requirement.fileContent) {
       return res.status(404).json({ error: 'File not found for this requirement' });
     }
 
     const dataUri = `data:${requirement.fileType};base64,${requirement.fileContent.toString('base64')}`;
-    
+
     res.json({
       dataUri,
       fileType: requirement.fileType,
@@ -516,7 +516,7 @@ router.post('/update-admission-approval-admin', async (req, res) => {
 
     // Update fields
     applicant.admissionApprovalAdminStatus = admissionApprovalAdminStatus;
-    
+
     // FIX: Explicitly set the admissionApprovalStatus based on the admissionApprovalAdminStatus
     if (admissionApprovalAdminStatus === 'Approved') {
       applicant.admissionApprovalStatus = 'Complete';
@@ -583,7 +583,7 @@ router.post('/sync-admission-approval-status', async (req, res) => {
 
     // Manually sync the statuses
     applicant.syncAdmissionApprovalStatus();
-    
+
     // Save changes
     await applicant.save();
 
@@ -1454,15 +1454,15 @@ router.post('/complete-admission-requirements', async (req, res) => {
     }
 
     // Allow Submitted, Verified, or Waived for completion
-    const allComplete = applicant.admissionRequirements.every(req => 
+    const allComplete = applicant.admissionRequirements.every(req =>
       req.status === 'Submitted' || req.status === 'Verified' || req.status === 'Waived'
     );
-    const allAddressed = applicant.admissionRequirements.every(req => 
+    const allAddressed = applicant.admissionRequirements.every(req =>
       req.status !== 'Not Submitted'
     );
 
     if (!allComplete || !allAddressed) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Not all requirements are submitted, verified, or waived',
         details: applicant.admissionRequirements.map(req => ({
           requirementId: req.requirementId,
@@ -1485,6 +1485,215 @@ router.post('/complete-admission-requirements', async (req, res) => {
   } catch (err) {
     console.error('Error completing admission requirements:', err);
     res.status(500).json({ error: 'Failed to complete admission requirements' });
+  }
+});
+
+router.post('/save-enrollment-requirements', upload.any(), async (req, res) => {
+  try {
+    console.log('Received request body:', req.body);
+    console.log('Received files:', req.files);
+
+    const { email, requirements } = req.body;
+    if (!email || !requirements) {
+      return res.status(400).json({ error: 'Email and requirements are required' });
+    }
+
+    let parsedRequirements;
+    try {
+      parsedRequirements = JSON.parse(requirements);
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid requirements format' });
+    }
+
+    if (!Array.isArray(parsedRequirements) || parsedRequirements.length === 0) {
+      return res.status(400).json({ error: 'Requirements must be a non-empty array' });
+    }
+
+    const files = req.files || [];
+    const fileMap = {};
+    files.forEach((file) => {
+      const match = file.fieldname.match(/^file-(\d+)$/);
+      if (match) {
+        fileMap[match[1]] = file;
+      }
+    });
+
+    console.log('Parsed requirements:', parsedRequirements);
+    console.log('File map:', Object.keys(fileMap).map(id => ({ id, name: fileMap[id].originalname })));
+
+    const applicant = await EnrolleeApplicant.findOne({ email: email.toLowerCase(), status: 'Active' });
+    if (!applicant) {
+      return res.status(404).json({ error: 'Active applicant not found' });
+    }
+
+    // Prevent modifications if status is Complete
+    if (applicant.enrollmentRequirementsStatus === 'Complete') {
+      return res.status(403).json({ error: 'Enrollment requirements are already complete and cannot be modified' });
+    }
+
+    // Initialize enrollmentRequirements if empty
+    if (!applicant.enrollmentRequirements) {
+      applicant.enrollmentRequirements = [];
+    }
+
+    const enrollmentRequirements = parsedRequirements.map((req) => {
+      const file = fileMap[req.id];
+      const existingReq = applicant.enrollmentRequirements.find(r => r.requirementId === req.id) || {};
+
+      // Validate requirement data
+      if (!req.id || !req.name) {
+        throw new Error(`Invalid requirement data: missing id or name for requirement ${req.id}`);
+      }
+
+      // Validate status
+      const validStatuses = ['Not Submitted', 'Submitted', 'Verified', 'Waived'];
+      const status = validStatuses.includes(req.status) ? req.status : (req.waived ? 'Waived' : file ? 'Submitted' : existingReq.status || 'Not Submitted');
+
+      return {
+        requirementId: req.id,
+        name: req.name,
+        fileContent: file ? file.buffer : existingReq.fileContent,
+        fileType: file ? file.mimetype : existingReq.fileType,
+        fileName: file ? file.originalname : existingReq.fileName,
+        status: status,
+        waiverDetails: req.waived ? (req.waiverDetails || existingReq.waiverDetails) : undefined
+      };
+    });
+
+    console.log('Constructed enrollmentRequirements:', enrollmentRequirements);
+
+    // Validate that all requirements have valid data
+    const invalidReqs = enrollmentRequirements.filter(req =>
+      req.status === 'Submitted' && (!req.fileContent || !req.fileType || !req.fileName)
+    );
+    if (invalidReqs.length > 0) {
+      return res.status(400).json({ error: 'Invalid file data for one or more requirements' });
+    }
+
+    applicant.enrollmentRequirements = enrollmentRequirements;
+
+    await applicant.save();
+
+    const savedApplicant = await EnrolleeApplicant.findOne({ email: email.toLowerCase(), status: 'Active' });
+    console.log('Applicant after save:', {
+      enrollmentRequirements: savedApplicant.enrollmentRequirements.map(r => ({
+        requirementId: r.requirementId,
+        status: r.status,
+        fileName: r.fileName
+      })),
+      enrollmentRequirementsStatus: savedApplicant.enrollmentRequirementsStatus
+    });
+
+    res.json({
+      message: 'Enrollment requirements saved successfully',
+      enrollmentRequirements: savedApplicant.enrollmentRequirements,
+      enrollmentRequirementsStatus: savedApplicant.enrollmentRequirementsStatus
+    });
+  } catch (err) {
+    console.error('Error saving enrollment requirements:', err);
+    res.status(err.status || 500).json({ error: err.message || 'Failed to save enrollment requirements' });
+  }
+});
+
+// Fetch enrollment requirements
+router.get('/enrollment-requirements/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const applicant = await EnrolleeApplicant.findOne({ email: email.toLowerCase(), status: 'Active' });
+    if (!applicant) {
+      return res.status(404).json({ error: 'Active applicant not found' });
+    }
+    res.status(200).json({
+      enrollmentRequirements: applicant.enrollmentRequirements,
+      enrollmentRequirementsStatus: applicant.enrollmentRequirementsStatus
+    });
+  } catch (err) {
+    console.error('Error fetching enrollment requirements:', err);
+    res.status(500).json({ error: 'Server error while fetching enrollment requirements' });
+  }
+});
+
+// Fetch enrollment file
+router.get('/fetch-enrollment-file/:email/:requirementId', async (req, res) => {
+  try {
+    const { email, requirementId } = req.params;
+    const cleanEmail = email.trim().toLowerCase();
+    const reqId = parseInt(requirementId);
+
+    const applicant = await EnrolleeApplicant.findOne({
+      email: cleanEmail,
+      status: 'Active'
+    });
+
+    if (!applicant) {
+      return res.status(404).json({ error: 'Active applicant not found' });
+    }
+
+    const requirement = applicant.enrollmentRequirements.find(
+      req => req.requirementId === reqId
+    );
+
+    if (!requirement || !requirement.fileContent) {
+      return res.status(404).json({ error: 'File not found for this requirement' });
+    }
+
+    const dataUri = `data:${requirement.fileType};base64,${requirement.fileContent.toString('base64')}`;
+
+    res.json({
+      dataUri,
+      fileType: requirement.fileType,
+      fileName: requirement.fileName
+    });
+  } catch (err) {
+    console.error('Error fetching enrollment file:', err);
+    res.status(500).json({ error: 'Server error while fetching enrollment file' });
+  }
+});
+
+router.post('/complete-enrollment-requirements', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const applicant = await EnrolleeApplicant.findOne({ email: email.toLowerCase(), status: 'Active' });
+    if (!applicant) {
+      return res.status(404).json({ error: 'Active applicant not found' });
+    }
+
+    // Verify that requirements exist
+    if (!applicant.enrollmentRequirements || applicant.enrollmentRequirements.length === 0) {
+      return res.status(400).json({ error: 'No enrollment requirements found' });
+    }
+
+    // Check if all requirements are Verified or Waived
+    const allComplete = applicant.enrollmentRequirements.every(req =>
+      req.status === 'Verified' || req.status === 'Waived'
+    );
+
+    if (!allComplete) {
+      return res.status(400).json({
+        error: 'Not all requirements are verified or waived',
+        details: applicant.enrollmentRequirements.map(req => ({
+          requirementId: req.requirementId,
+          name: req.name,
+          status: req.status
+        }))
+      });
+    }
+
+    applicant.enrollmentRequirementsStatus = 'Complete';
+
+    await applicant.save();
+
+    res.json({
+      message: 'Enrollment requirements marked as complete',
+      enrollmentRequirementsStatus: applicant.enrollmentRequirementsStatus
+    });
+  } catch (err) {
+    console.error('Error completing enrollment requirements:', err);
+    res.status(500).json({ error: 'Failed to complete enrollment requirements' });
   }
 });
 
@@ -1536,6 +1745,218 @@ router.get('/activity/:email', async (req, res) => {
   }
 });
 
+// In enrolleeApplicants.js, update the /save-voucher-application route
+router.post('/save-voucher-application', upload.any(), async (req, res) => {
+  try {
+    console.log('Received request body:', req.body);
+    console.log('Received files:', req.files);
+
+    const { email, voucherType, requirements } = req.body;
+    if (!email || !voucherType) {
+      return res.status(400).json({ error: 'Email and voucher type are required' });
+    }
+
+    let parsedRequirements = [];
+    if (requirements) {
+      try {
+        parsedRequirements = JSON.parse(requirements);
+      } catch (err) {
+        return res.status(400).json({ error: 'Invalid requirements format' });
+      }
+
+      if (!Array.isArray(parsedRequirements)) {
+        return res.status(400).json({ error: 'Requirements must be an array' });
+      }
+    }
+
+    const files = req.files || [];
+    const fileMap = {};
+    files.forEach((file) => {
+      const match = file.fieldname.match(/^file-(\d+)$/);
+      if (match) {
+        fileMap[match[1]] = file;
+      }
+    });
+
+    console.log('Parsed requirements:', parsedRequirements);
+    console.log('File map:', Object.keys(fileMap).map(id => ({ id, name: fileMap[id].originalname })));
+
+    const applicant = await EnrolleeApplicant.findOne({ email: email.toLowerCase(), status: 'Active' });
+    if (!applicant) {
+      return res.status(404).json({ error: 'Active applicant not found' });
+    }
+
+    // Prevent modifications if status is Complete
+    if (applicant.voucherApplicationStatus === 'Complete') {
+      return res.status(403).json({ error: 'Voucher application is already complete and cannot be modified' });
+    }
+
+    // Update voucher type
+    applicant.voucherType = voucherType;
+
+    // Initialize voucherRequirements if empty
+    if (!applicant.voucherRequirements) {
+      applicant.voucherRequirements = [];
+    }
+
+    // Process requirements (only for PEAC VOUCHER)
+    if (voucherType === 'PEAC VOUCHER' && parsedRequirements.length > 0) {
+      const voucherRequirements = parsedRequirements.map((req) => {
+        const file = fileMap[req.id];
+        const existingReq = applicant.voucherRequirements.find(r => r.requirementId === req.id) || {};
+
+        // Validate requirement data
+        if (!req.id || !req.name) {
+          throw new Error(`Invalid requirement data: missing id or name for requirement ${req.id}`);
+        }
+
+        const requirement = {
+          requirementId: req.id,
+          name: req.name,
+          fileContent: file ? file.buffer : existingReq.fileContent,
+          fileType: file ? file.mimetype : existingReq.fileType,
+          fileName: file ? file.originalname : existingReq.fileName,
+          status: req.waived ? 'Waived' : file ? 'Submitted' : (existingReq.status && existingReq.fileContent) ? existingReq.status : 'Not Submitted',
+          waiverDetails: req.waived ? (req.waiverDetails || existingReq.waiverDetails) : undefined,
+        };
+
+        console.log(`Processed requirement ${req.id}:`, {
+          status: requirement.status,
+          fileName: requirement.fileName,
+          waived: req.waived,
+        });
+
+        return requirement;
+      });
+      console.log('Constructed voucherRequirements:', voucherRequirements);
+
+      // Validate that all requirements have valid data
+      const invalidReqs = voucherRequirements.filter(req =>
+        req.status === 'Submitted' && (!req.fileContent || !req.fileType || !req.fileName)
+      );
+      if (invalidReqs.length > 0) {
+        return res.status(400).json({ error: 'Invalid file data for one or more requirements' });
+      }
+
+      applicant.voucherRequirements = voucherRequirements;
+
+      // Set enrollmentApprovalAdminStatus to 'Pending' if any requirement is Submitted
+      const hasSubmitted = voucherRequirements.some(req => req.status === 'Submitted');
+      if (hasSubmitted) {
+        applicant.enrollmentApprovalAdminStatus = 'Pending';
+      }
+    } else {
+      // Clear requirements for non-PEAC vouchers
+      applicant.voucherRequirements = [];
+    }
+
+    // Update status: Complete if voucherType is set and (for PEAC VOUCHER, requirements are addressed)
+    if (voucherType !== 'PEAC VOUCHER') {
+      applicant.voucherApplicationStatus = 'Complete';
+    } else {
+      const allComplete = applicant.voucherRequirements.every(req =>
+        req.status === 'Submitted' || req.status === 'Verified' || req.status === 'Waived'
+      );
+      const allAddressed = applicant.voucherRequirements.every(req =>
+        req.status !== 'Not Submitted'
+      );
+      applicant.voucherApplicationStatus = (allComplete && allAddressed) ? 'Complete' : 'Incomplete';
+    }
+
+    console.log('Applicant before save:', {
+      voucherType: applicant.voucherType,
+      voucherRequirements: applicant.voucherRequirements.map(r => ({
+        requirementId: r.requirementId,
+        status: r.status,
+        fileName: r.fileName,
+      })),
+      voucherApplicationStatus: applicant.voucherApplicationStatus,
+      enrollmentApprovalAdminStatus: applicant.enrollmentApprovalAdminStatus,
+    });
+
+    await applicant.save();
+
+    const savedApplicant = await EnrolleeApplicant.findOne({ email: email.toLowerCase(), status: 'Active' });
+    console.log('Applicant after save:', {
+      voucherType: savedApplicant.voucherType,
+      voucherRequirements: savedApplicant.voucherRequirements.map(r => ({
+        requirementId: r.requirementId,
+        status: r.status,
+        fileName: r.fileName,
+      })),
+      voucherApplicationStatus: savedApplicant.voucherApplicationStatus,
+      enrollmentApprovalAdminStatus: savedApplicant.enrollmentApprovalAdminStatus,
+    });
+
+    res.json({
+      message: 'Voucher application saved successfully',
+      voucherType: savedApplicant.voucherType,
+      voucherRequirements: savedApplicant.voucherRequirements,
+      voucherApplicationStatus: savedApplicant.voucherApplicationStatus,
+      enrollmentApprovalAdminStatus: savedApplicant.enrollmentApprovalAdminStatus,
+    });
+  } catch (err) {
+    console.error('Error saving voucher application:', err);
+    res.status(err.status || 500).json({ error: err.message || 'Failed to save voucher application' });
+  }
+});
+
+router.get('/voucher-application/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const applicant = await EnrolleeApplicant.findOne({ email: email.toLowerCase(), status: 'Active' });
+    if (!applicant) {
+      return res.status(404).json({ error: 'Active applicant not found' });
+    }
+    res.status(200).json({
+      voucherType: applicant.voucherType,
+      voucherRequirements: applicant.voucherRequirements,
+      voucherApplicationStatus: applicant.voucherApplicationStatus,
+      enrollmentApprovalAdminStatus: applicant.enrollmentApprovalAdminStatus, // Add this field
+    });
+  } catch (err) {
+    console.error('Error fetching voucher application:', err);
+    res.status(500).json({ error: 'Server error while fetching voucher application' });
+  }
+});
+
+// Fetch voucher file
+router.get('/fetch-voucher-file/:email/:requirementId', async (req, res) => {
+  try {
+    const { email, requirementId } = req.params;
+    const cleanEmail = email.trim().toLowerCase();
+    const reqId = parseInt(requirementId);
+
+    const applicant = await EnrolleeApplicant.findOne({
+      email: cleanEmail,
+      status: 'Active'
+    });
+
+    if (!applicant) {
+      return res.status(404).json({ error: 'Active applicant not found' });
+    }
+
+    const requirement = applicant.voucherRequirements.find(
+      req => req.requirementId === reqId
+    );
+
+    if (!requirement || !requirement.fileContent) {
+      return res.status(404).json({ error: 'File not found for this requirement' });
+    }
+
+    const dataUri = `data:${requirement.fileType};base64,${requirement.fileContent.toString('base64')}`;
+
+    res.json({
+      dataUri,
+      fileType: requirement.fileType,
+      fileName: requirement.fileName,
+    });
+  } catch (err) {
+    console.error('Error fetching voucher file:', err);
+    res.status(500).json({ error: 'Server error while fetching voucher file' });
+  }
+});
+
 router.post('/save-exam-interview', async (req, res) => {
   try {
     const { email, selectedDate, preferredExamAndInterviewApplicationStatus } = req.body;
@@ -1544,9 +1965,9 @@ router.post('/save-exam-interview', async (req, res) => {
       return res.status(400).json({ error: 'Email, selected date, and status are required' });
     }
 
-    const applicant = await EnrolleeApplicant.findOne({ 
-      email: email.toLowerCase(), 
-      status: 'Active' 
+    const applicant = await EnrolleeApplicant.findOne({
+      email: email.toLowerCase(),
+      status: 'Active'
     });
 
     if (!applicant) {

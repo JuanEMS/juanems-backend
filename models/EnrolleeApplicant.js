@@ -180,6 +180,58 @@ admissionApprovalAdminStatus: {
     type: String,
     trim: true,
   },
+  enrollmentRequirements: [{
+    requirementId: { type: Number, required: true },
+    name: { type: String, required: true },
+    fileContent: { type: Buffer },
+    fileType: { type: String },
+    fileName: { type: String },
+    status: {
+      type: String,
+      enum: ['Not Submitted', 'Submitted', 'Verified', 'Waived'],
+      default: 'Not Submitted'
+    },
+    waiverDetails: {
+      reason: { type: String },
+      promiseDate: { type: Date }
+    }
+  }],
+  enrollmentRequirementsStatus: {
+    type: String,
+    enum: ['Incomplete', 'Complete'],
+    default: 'Incomplete'
+  },
+  voucherType: {
+    type: String,
+    enum: ['', 'PUBLIC SCHOOL VOUCHER', 'PRIVATE SCHOOL WITHOUT VOUCHER', 'PEAC VOUCHER'],
+    default: '',
+  },
+  voucherApplicationStatus: {
+    type: String,
+    enum: ['Incomplete', 'Complete'],
+    default: 'Incomplete',
+  },
+  voucherRequirements: [{
+    requirementId: { type: Number, required: true },
+    name: { type: String, required: true },
+    fileContent: { type: Buffer },
+    fileType: { type: String },
+    fileName: { type: String },
+    status: {
+      type: String,
+      enum: ['Not Submitted', 'Submitted', 'Verified', 'Waived'],
+      default: 'Not Submitted',
+    },
+    waiverDetails: {
+      reason: { type: String },
+      promiseDate: { type: Date },
+    },
+  }],
+  enrollmentApprovalAdminStatus: {
+    type: String,
+    enum: ['Pending', 'Approved', 'Rejected'],
+    default: 'Pending',
+  },
 });
 
 // Password hashing pre-save hook
@@ -221,6 +273,43 @@ enrolleeApplicantSchema.pre('save', function (next) {
     }
   } else if (this.isNew && (!this.admissionRequirements || this.admissionRequirements.length === 0)) {
     this.admissionRequirementsStatus = 'Incomplete';
+  }
+  next();
+});
+
+// Pre-save hook for enrollment requirements status
+enrolleeApplicantSchema.pre('save', function (next) {
+  if (this.isModified('enrollmentRequirements') && this.enrollmentRequirements && this.enrollmentRequirements.length > 0) {
+    const allComplete = this.enrollmentRequirements.every(req => 
+      req.status === 'Verified' || req.status === 'Waived'
+    );
+    this.enrollmentRequirementsStatus = allComplete ? 'Complete' : 'Incomplete';
+  } else if (this.isNew && (!this.enrollmentRequirements || this.enrollmentRequirements.length === 0)) {
+    this.enrollmentRequirementsStatus = 'Incomplete';
+  }
+  next();
+});
+
+enrolleeApplicantSchema.pre('save', function (next) {
+  if (this.isModified('voucherRequirements') && this.voucherRequirements && this.voucherRequirements.length > 0) {
+    const allComplete = this.voucherRequirements.every(req => 
+      req.status === 'Submitted' || req.status === 'Verified' || req.status === 'Waived'
+    );
+    const allAddressed = this.voucherRequirements.every(req => 
+      req.status !== 'Not Submitted'
+    );
+    this.voucherApplicationStatus = (allComplete && allAddressed) ? 'Complete' : 'Incomplete';
+    
+    // Set enrollmentApprovalAdminStatus to 'Pending' if any requirement is Submitted
+    const hasSubmitted = this.voucherRequirements.some(req => req.status === 'Submitted');
+    if (hasSubmitted && this.enrollmentApprovalAdminStatus !== 'Approved' && this.enrollmentApprovalAdminStatus !== 'Rejected') {
+      this.enrollmentApprovalAdminStatus = 'Pending';
+    }
+  } else if (this.isNew && (!this.voucherRequirements || this.voucherRequirements.length === 0)) {
+    console.log(`Initializing voucherRequirements for ${this.email}: []`);
+    this.voucherApplicationStatus = 'Incomplete';
+  } else if (this.voucherType && this.voucherType !== 'PEAC VOUCHER' && this.isModified('voucherType')) {
+    this.voucherApplicationStatus = 'Complete';
   }
   next();
 });

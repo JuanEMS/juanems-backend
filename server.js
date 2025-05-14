@@ -101,6 +101,7 @@ app.use('/api/announcements', announcementRoutes);
 app.use('/api', pdfRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/pdf', pdfRoutes);
+app.use('/api/enrollment-pdf', pdfRoutes);
 
 // Admin Routes
 app.use('/api/admin', accountRoutes);
