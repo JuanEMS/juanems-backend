@@ -80,8 +80,8 @@ router.post("/send-signup-otp", async (req, res) => {
     const { email, firstName, lastName } = req.body;
 
     if (!email || !firstName || !lastName) {
-      return res.status(400).json({ 
-        error: "Email, first name, and last name are required" 
+      return res.status(400).json({
+        error: "Email, first name, and last name are required",
       });
     }
 
@@ -91,8 +91,8 @@ router.post("/send-signup-otp", async (req, res) => {
     });
 
     if (existingApplicant) {
-      return res.status(409).json({ 
-        error: "Applicant with this email already exists" 
+      return res.status(409).json({
+        error: "Applicant with this email already exists",
       });
     }
 
@@ -106,7 +106,7 @@ router.post("/send-signup-otp", async (req, res) => {
       otp,
       firstName,
       lastName,
-      otpExpiry: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes expiry
+      otpExpiry: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
     });
 
     await pendingOTP.save();
@@ -121,13 +121,12 @@ router.post("/send-signup-otp", async (req, res) => {
     res.status(200).json({
       message: "OTP sent successfully. Please verify to continue signup.",
       email: email.toLowerCase(),
-      otp // Only for testing
+      otp, // Only for testing
     });
-
   } catch (error) {
     console.error("Error sending signup OTP:", error);
-    res.status(500).json({ 
-      error: `Failed to send OTP: ${error.message}` 
+    res.status(500).json({
+      error: `Failed to send OTP: ${error.message}`,
     });
   }
 });
@@ -138,28 +137,28 @@ router.post("/verify-signup-otp", async (req, res) => {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
-      return res.status(400).json({ 
-        error: "Email and OTP are required" 
+      return res.status(400).json({
+        error: "Email and OTP are required",
       });
     }
 
     // Find pending OTP
     const pendingOTP = await PendingOTP.findOne({
       email: email.toLowerCase(),
-      otp
+      otp,
     });
 
     if (!pendingOTP) {
-      return res.status(400).json({ 
-        error: "Invalid OTP" 
+      return res.status(400).json({
+        error: "Invalid OTP",
       });
     }
 
     // Check if OTP is expired
     if (pendingOTP.otpExpiry < new Date()) {
       await PendingOTP.deleteOne({ _id: pendingOTP._id });
-      return res.status(400).json({ 
-        error: "OTP has expired. Please request a new one." 
+      return res.status(400).json({
+        error: "OTP has expired. Please request a new one.",
       });
     }
 
@@ -167,13 +166,12 @@ router.post("/verify-signup-otp", async (req, res) => {
     res.status(200).json({
       message: "OTP verified successfully. You can now proceed with signup.",
       email: email.toLowerCase(),
-      verified: true
+      verified: true,
     });
-
   } catch (error) {
     console.error("Error verifying signup OTP:", error);
-    res.status(500).json({ 
-      error: `Failed to verify OTP: ${error.message}` 
+    res.status(500).json({
+      error: `Failed to verify OTP: ${error.message}`,
     });
   }
 });
@@ -196,7 +194,18 @@ router.post("/signup-applicant", async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!firstName || !lastName || !email || !mobile || !dob || !nationality || !academicYear || !academicTerm || !academicLevel || !academicStrand) {
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !mobile ||
+      !dob ||
+      !nationality ||
+      !academicYear ||
+      !academicTerm ||
+      !academicLevel ||
+      !academicStrand
+    ) {
       return res.status(400).json({ error: "Required fields are missing" });
     }
 
@@ -214,12 +223,12 @@ router.post("/signup-applicant", async (req, res) => {
     const pendingOTP = await PendingOTP.findOne({
       email: email.toLowerCase(),
       firstName,
-      lastName
+      lastName,
     });
 
     if (!pendingOTP) {
-      return res.status(400).json({ 
-        error: "Please verify your email with OTP before signing up" 
+      return res.status(400).json({
+        error: "Please verify your email with OTP before signing up",
       });
     }
 
@@ -251,7 +260,7 @@ router.post("/signup-applicant", async (req, res) => {
       password: hashedPassword,
       temporaryPassword: tempPassword,
       admissionRequirementsStatus: "Incomplete",
-      admissionAdminFirstStatus: "On-going"
+      admissionAdminFirstStatus: "On-going",
     });
 
     // Save applicant to database
@@ -268,9 +277,10 @@ router.post("/signup-applicant", async (req, res) => {
     );
 
     res.status(201).json({
-      message: "Applicant created successfully. Your login credentials have been sent to your email.",
+      message:
+        "Applicant created successfully. Your login credentials have been sent to your email.",
       email: email.toLowerCase(),
-      studentID
+      studentID,
     });
   } catch (error) {
     console.error("Error creating applicant:", error);
@@ -280,11 +290,184 @@ router.post("/signup-applicant", async (req, res) => {
   }
 });
 
+// Send OTP for signin verification
+router.post("/send-signin-otp", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        error: "Email is required",
+      });
+    }
+
+    // Check if applicant exists and is active
+    const applicant = await EnrolleeApplicant.findOne({
+      email: email.toLowerCase(),
+      status: "Active",
+    });
+
+    if (!applicant) {
+      return res.status(404).json({
+        error: "No active account found with this email",
+      });
+    }
+
+    // Delete any existing OTPs for this email
+    await PendingOTP.deleteMany({
+      email: email.toLowerCase(),
+      type: "signin",
+    });
+
+    // Generate numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Store signin OTP
+    const pendingOTP = new PendingOTP({
+      email: email.toLowerCase(),
+      otp,
+      firstName: applicant.firstName,
+      lastName: applicant.lastName,
+      otpExpiry: new Date(Date.now() + 3 * 60 * 1000), // 3 minutes expiry for login
+      type: "signin",
+    });
+
+    await pendingOTP.save();
+
+    // Send OTP via email
+    await emailService.sendOTP(
+      email.toLowerCase(),
+      otp,
+      `${applicant.firstName} ${applicant.lastName}`
+    );
+
+    res.status(200).json({
+      message: "OTP sent successfully. Please verify to continue signin.",
+      email: email.toLowerCase(),
+      otp, // Only for testing
+    });
+  } catch (error) {
+    console.error("Error sending signin OTP:", error);
+    res.status(500).json({
+      error: `Failed to send OTP: ${error.message}`,
+    });
+  }
+});
+
+router.post("/verify-signin-otp", async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        error: "Email and OTP are required",
+      });
+    }
+
+    // Find pending signin OTP
+    const pendingOTP = await PendingOTP.findOne({
+      email: email.toLowerCase(),
+      type: "signin",
+    });
+
+    if (!pendingOTP) {
+      return res.status(400).json({
+        error: "No pending OTP found. Please request a new one.",
+      });
+    }
+
+    // Check if OTP is expired
+    if (pendingOTP.otpExpiry < new Date()) {
+      await PendingOTP.deleteOne({ _id: pendingOTP._id });
+      return res.status(400).json({
+        error: "OTP has expired. Please request a new one.",
+      });
+    }
+
+    // Verify OTP
+    if (pendingOTP.otp !== otp) {
+      return res.status(400).json({
+        error: "Invalid OTP",
+      });
+    }
+
+    // Find the applicant
+    const applicant = await EnrolleeApplicant.findOne({
+      email: email.toLowerCase(),
+      status: "Active",
+    });
+
+    if (!applicant) {
+      return res.status(404).json({
+        error: "Account not found or not active",
+      });
+    }
+
+    // Delete the pending OTP
+    await PendingOTP.deleteOne({ _id: pendingOTP._id });
+
+    // Convert the applicant document to a plain JavaScript object
+    const userData = applicant.toObject();
+
+    // Remove sensitive data like password
+    delete userData.password;
+
+    // Return success with complete applicant details
+    res.status(200).json({
+      message: "Email verified successfully. You can now proceed with signin.",
+      verified: true,
+      user: userData,
+    });
+  } catch (error) {
+    console.error("Error verifying signin OTP:", error);
+    res.status(500).json({
+      error: `Failed to verify OTP: ${error.message}`,
+    });
+  }
+});
+
+router.post("/signin-applicant", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    const applicant = await EnrolleeApplicant.findOne({
+      email: email.toLowerCase(),
+    });
+    if (!applicant) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, applicant.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    // Convert the applicant document to a plain JavaScript object
+    const userData = applicant.toObject();
+
+    // Remove sensitive data like password
+    delete userData.password;
+
+    // Return complete user data
+    res.status(200).json({
+      message: "Login successful",
+      user: userData,
+    });
+  } catch (error) {
+    console.error("Error logging in:", error);
+    res.status(500).json({ error: `Failed to log in: ${error.message}` });
+  }
+});
+
 // Helper function to generate temporary password
 function generateTemporaryPassword() {
   const length = 10;
-  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let password = '';
+  const charset =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let password = "";
   for (let i = 0; i < length; i++) {
     const randomIndex = Math.floor(Math.random() * charset.length);
     password += charset[randomIndex];
@@ -295,14 +478,18 @@ function generateTemporaryPassword() {
 // Helper function to generate student ID
 function generateStudentID() {
   const year = new Date().getFullYear().toString();
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  const random = Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, "0");
   return `S${year}${random}`;
 }
 
 // Helper function to generate applicant ID
 function generateApplicantID() {
   const year = new Date().getFullYear().toString();
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  const random = Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, "0");
   return `A${year}${random}`;
 }
 
@@ -566,12 +753,10 @@ router.post("/", async (req, res) => {
     });
 
     if (existingActive) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "Email is already registered with an active or pending application",
-        });
+      return res.status(400).json({
+        error:
+          "Email is already registered with an active or pending application",
+      });
     }
 
     const studentID = await getNextStudentIDSequence(academicYear);
@@ -635,12 +820,10 @@ router.get("/check-email/:email", async (req, res) => {
     });
 
     if (existing) {
-      return res
-        .status(409)
-        .json({
-          message:
-            "Email is already registered with an active or pending application",
-        });
+      return res.status(409).json({
+        message:
+          "Email is already registered with an active or pending application",
+      });
     }
 
     const existingInactive = await EnrolleeApplicant.findOne({
@@ -886,11 +1069,9 @@ router.post("/update-admission-approval-admin", async (req, res) => {
     });
   } catch (err) {
     console.error("Error updating admission approval admin status:", err);
-    res
-      .status(500)
-      .json({
-        error: "Server error while updating admission approval admin status",
-      });
+    res.status(500).json({
+      error: "Server error while updating admission approval admin status",
+    });
   }
 });
 
@@ -957,7 +1138,10 @@ router.post("/verify-otp", async (req, res) => {
     }
 
     // Check for lockout
-    if (applicant.otpAttemptLockout && applicant.otpAttemptLockout > new Date()) {
+    if (
+      applicant.otpAttemptLockout &&
+      applicant.otpAttemptLockout > new Date()
+    ) {
       const minutesLeft = Math.ceil(
         (applicant.otpAttemptLockout - new Date()) / (1000 * 60)
       );
@@ -976,7 +1160,8 @@ router.post("/verify-otp", async (req, res) => {
         applicant.otpAttemptLockout = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes lockout
         await applicant.save();
         return res.status(429).json({
-          message: "Too many incorrect attempts. Please try again in 5 minutes.",
+          message:
+            "Too many incorrect attempts. Please try again in 5 minutes.",
           lockout: true,
         });
       }
@@ -1031,7 +1216,8 @@ router.post("/verify-otp", async (req, res) => {
     );
 
     return res.status(200).json({
-      message: "Email verification successful. Your login credentials have been sent to your email.",
+      message:
+        "Email verification successful. Your login credentials have been sent to your email.",
       data: {
         studentID: applicant.studentID,
         email: applicant.email,
@@ -1040,7 +1226,9 @@ router.post("/verify-otp", async (req, res) => {
     });
   } catch (error) {
     console.error("OTP verification error:", error);
-    return res.status(500).json({ message: "Server error during verification" });
+    return res
+      .status(500)
+      .json({ message: "Server error during verification" });
   }
 });
 
@@ -1979,12 +2167,10 @@ router.post("/save-enrollment-requirements", upload.any(), async (req, res) => {
 
     // Prevent modifications if status is Complete
     if (applicant.enrollmentRequirementsStatus === "Complete") {
-      return res
-        .status(403)
-        .json({
-          error:
-            "Enrollment requirements are already complete and cannot be modified",
-        });
+      return res.status(403).json({
+        error:
+          "Enrollment requirements are already complete and cannot be modified",
+      });
     }
 
     // Initialize enrollmentRequirements if empty
@@ -2303,12 +2489,9 @@ router.post("/save-voucher-application", upload.any(), async (req, res) => {
 
     // Prevent modifications if status is Complete
     if (applicant.voucherApplicationStatus === "Complete") {
-      return res
-        .status(403)
-        .json({
-          error:
-            "Voucher application is already complete and cannot be modified",
-        });
+      return res.status(403).json({
+        error: "Voucher application is already complete and cannot be modified",
+      });
     }
 
     // Update voucher type
@@ -2712,11 +2895,9 @@ router.post("/update-reservation-status", async (req, res) => {
     });
   } catch (err) {
     console.error("Error updating reservation payment status:", err);
-    res
-      .status(500)
-      .json({
-        error: "Server error while updating reservation payment status",
-      });
+    res.status(500).json({
+      error: "Server error while updating reservation payment status",
+    });
   }
 });
 
@@ -2763,11 +2944,9 @@ router.post("/update-reservation-status", async (req, res) => {
     });
   } catch (err) {
     console.error("Error updating reservation payment status:", err);
-    res
-      .status(500)
-      .json({
-        error: "Server error while updating reservation payment status",
-      });
+    res.status(500).json({
+      error: "Server error while updating reservation payment status",
+    });
   }
 });
 
@@ -2827,6 +3006,372 @@ router.get("/exam-interview/:email", async (req, res) => {
     res
       .status(500)
       .json({ error: "Server error while fetching exam and interview data" });
+  }
+});
+
+router.get("/applicant/ongoing-status-exam-and-interview", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const cleanEmail = email.trim().toLowerCase();
+
+    const applicant = await EnrolleeApplicant.findOne({
+      email: cleanEmail,
+      status: "Active",
+    }).sort({ createdAt: -1 });
+
+    if (!applicant) {
+      return res.status(404).json({ error: "Active applicant not found" });
+    }
+
+    res.status(200).json({
+      selectedDate: applicant.preferredExamAndInterviewDate,
+      preferredExamAndInterviewApplicationStatus:
+        applicant.preferredExamAndInterviewApplicationStatus,
+    });
+  } catch (err) {
+    console.error("Error fetching exam and interview data:", err);
+    res
+      .status(500)
+      .json({ error: "Server error while fetching exam and interview data" });
+  }
+});
+
+/**
+ * @route GET /api/applicants/ongoing
+ * @desc Get all applicants with "On-going" status with pagination and specific fields
+ * @access Private
+ */
+router.get("/applicants/ongoing", async (req, res) => {
+  try {
+    // Get page and limit from query params, with defaults
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    // Calculate skip value for pagination
+    const skip = (page - 1) * limit;
+
+    // Query conditions - only filter by admissionAdminFirstStatus
+    const filter = {
+      admissionAdminFirstStatus: "On-going",
+    };
+
+    // Define specific fields to retrieve
+    const fieldProjection = {
+      firstName: 1,
+      middleName: 1,
+      lastName: 1,
+      dob: 1,
+      email: 1,
+      mobile: 1,
+      nationality: 1,
+      academicYear: 1,
+      academicTerm: 1,
+      academicStrand: 1,
+      academicLevel: 1,
+      studentID: 1,
+      applicantID: 1,
+      activityStatus: 1,
+      registrationStatus: 1,
+      preferredExamAndInterviewApplicationStatus: 1,
+      admissionRequirementsStatus: 1,
+      admissionAdminFirstStatus: 1,
+      admissionExamDetailsStatus: 1,
+      approvedExamFeeStatus: 1,
+      approvedExamInterviewResult: 1,
+      examInterviewResultStatus: 1,
+      reservationFeePaymentStepStatus: 1,
+      reservationFeeAmountPaid: 1,
+      admissionApprovalAdminStatus: 1,
+      admissionApprovalStatus: 1,
+      enrollmentRequirementsStatus: 1,
+      voucherType: 1,
+      voucherApplicationStatus: 1,
+      enrollmentApprovalAdminStatus: 1,
+      enrollmentApprovalStatus: 1,
+      interviewStatus: 1,
+      examStatus: 1,
+    };
+
+    // Execute count query for total documents
+    const totalDocs = await EnrolleeApplicant.countDocuments(filter);
+
+    // Execute find query with pagination and specific field projection
+    const applicants = await EnrolleeApplicant.find(filter, fieldProjection)
+      .sort({ createdAt: -1 }) // Sort by newest first
+      .skip(skip)
+      .limit(limit)
+      .lean(); // Use lean() for better performance since we don't need Mongoose instances
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalDocs / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    // Send response
+    res.status(200).json({
+      success: true,
+      data: {
+        applicants,
+        pagination: {
+          totalDocs,
+          limit,
+          page,
+          totalPages,
+          hasNextPage,
+          hasPrevPage,
+          nextPage: hasNextPage ? page + 1 : null,
+          prevPage: hasPrevPage ? page - 1 : null,
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching ongoing applicants:", err);
+    res.status(500).json({
+      success: false,
+      error: "Server error while fetching ongoing applicants",
+    });
+  }
+});
+
+/**
+ * @route GET /api/applicants/approved
+ * @desc Get all applicants with "Approved" status with pagination and specific fields
+ * @access Private
+ */
+router.get("/applicants/approved", async (req, res) => {
+  try {
+    // Get page and limit from query params, with defaults
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    // Calculate skip value for pagination
+    const skip = (page - 1) * limit;
+
+    // Query conditions - filter by admissionAdminFirstStatus with "Approved" value
+    const filter = {
+      admissionAdminFirstStatus: "Approved",
+    };
+
+    // Define specific fields to retrieve
+    const fieldProjection = {
+      firstName: 1,
+      middleName: 1,
+      lastName: 1,
+      dob: 1,
+      email: 1,
+      mobile: 1,
+      nationality: 1,
+      academicYear: 1,
+      academicTerm: 1,
+      academicStrand: 1,
+      academicLevel: 1,
+      studentID: 1,
+      applicantID: 1,
+      activityStatus: 1,
+      registrationStatus: 1,
+      preferredExamAndInterviewApplicationStatus: 1,
+      admissionRequirementsStatus: 1,
+      admissionAdminFirstStatus: 1,
+      admissionExamDetailsStatus: 1,
+      approvedExamFeeStatus: 1,
+      approvedExamInterviewResult: 1,
+      examInterviewResultStatus: 1,
+      reservationFeePaymentStepStatus: 1,
+      reservationFeeAmountPaid: 1,
+      admissionApprovalAdminStatus: 1,
+      admissionApprovalStatus: 1,
+      enrollmentRequirementsStatus: 1,
+      voucherType: 1,
+      voucherApplicationStatus: 1,
+      enrollmentApprovalAdminStatus: 1,
+      enrollmentApprovalStatus: 1,
+      interviewStatus: 1,
+      examStatus: 1,
+    };
+
+    // Execute count query for total documents
+    const totalDocs = await EnrolleeApplicant.countDocuments(filter);
+
+    // Execute find query with pagination and specific field projection
+    const applicants = await EnrolleeApplicant.find(filter, fieldProjection)
+      .sort({ createdAt: -1 }) // Sort by newest first
+      .skip(skip)
+      .limit(limit)
+      .lean(); // Use lean() for better performance since we don't need Mongoose instances
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalDocs / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    // Send response
+    res.status(200).json({
+      success: true,
+      data: {
+        applicants,
+        pagination: {
+          totalDocs,
+          limit,
+          page,
+          totalPages,
+          hasNextPage,
+          hasPrevPage,
+          nextPage: hasNextPage ? page + 1 : null,
+          prevPage: hasPrevPage ? page - 1 : null,
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching approved applicants:", err);
+    res.status(500).json({
+      success: false,
+      error: "Server error while fetching approved applicants",
+    });
+  }
+});
+
+router.patch("/update-interview-and-exam-data", async (req, res) => {
+  try {
+    const { applicantId, scheduleData } = req.body;
+
+    // Validate inputs
+    if (!applicantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Applicant ID is required",
+      });
+    }
+
+    // Check if scheduleData exists
+    if (!scheduleData) {
+      return res.status(400).json({
+        success: false,
+        message: "Schedule data is required",
+      });
+    }
+
+    // Explicitly check each field that might be in scheduleData
+    if (scheduleData.approvedExamDate !== undefined) {
+      updateData.approvedExamDate = scheduleData.approvedExamDate;
+    }
+
+    if (scheduleData.approvedExamFeeAmount !== undefined) {
+      updateData.approvedExamFeeAmount = scheduleData.approvedExamFeeAmount;
+    }
+
+    if (scheduleData.approvedExamRoom !== undefined) {
+      updateData.approvedExamRoom = scheduleData.approvedExamRoom;
+    }
+
+    if (scheduleData.approvedExamTime !== undefined) {
+      updateData.approvedExamTime = scheduleData.approvedExamTime;
+    }
+
+    if (scheduleData.approvedExamFeeStatus !== undefined) {
+      updateData.approvedExamFeeStatus = scheduleData.approvedExamFeeStatus;
+    }
+
+    if (scheduleData.preferredExamAndInterviewDate !== undefined) {
+      updateData.preferredExamAndInterviewDate =
+        scheduleData.preferredExamAndInterviewDate;
+    }
+
+    // If only admissionAdminFirstStatus is in updateData (no schedule fields), check if we should proceed
+    if (
+      Object.keys(updateData).length === 1 &&
+      updateData.admissionAdminFirstStatus
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid schedule data fields provided for update",
+      });
+    }
+
+    // Update the applicant by finding document where _id equals applicantId
+    const updatedApplicant = await EnrolleeApplicant.findOneAndUpdate(
+      { _id: applicantId }, // Explicitly match _id field with applicantId
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedApplicant) {
+      return res.status(404).json({
+        success: false,
+        message: "Applicant not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Schedule data updated successfully and status approved",
+      data: updatedApplicant,
+    });
+  } catch (error) {
+    console.error("Error updating interview and exam data:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update schedule data",
+      error: error.message,
+    });
+  }
+});
+
+router.patch("/update-status/results/:applicantId", async (req, res) => {
+  try {
+    const { applicantId } = req.params;
+    const { statusData } = req.body;
+
+    if (
+      !statusData ||
+      (!statusData.interviewStatus && !statusData.examStatus)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Status data is required in the request body",
+      });
+    }
+
+    // Create an update object with only the fields that are present in statusData
+    const updateData = {};
+    if (statusData.interviewStatus) {
+      updateData.interviewStatus = statusData.interviewStatus;
+    }
+    if (statusData.examStatus) {
+      updateData.examStatus = statusData.examStatus;
+    }
+
+    // Update the applicant data
+    const updatedApplicant = await EnrolleeApplicant.findByIdAndUpdate(
+      applicantId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedApplicant) {
+      return res.status(404).json({
+        success: false,
+        message: "Applicant not found",
+      });
+    }
+
+    // Log the successful update
+    console.log(`Updated status for applicant ${applicantId}:`, updateData);
+
+    return res.status(200).json({
+      success: true,
+      message: "Applicant status updated successfully",
+      data: {
+        interviewStatus: updatedApplicant.interviewStatus,
+        examStatus: updatedApplicant.examStatus,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating applicant status:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update applicant status",
+      error: error.message,
+    });
   }
 });
 

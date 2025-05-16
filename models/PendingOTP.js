@@ -23,6 +23,11 @@ const pendingOTPSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+  type: {
+    type: String,
+    enum: ['signup', 'signin'],
+    default: 'signup'
+  },
   attempts: {
     type: Number,
     default: 0

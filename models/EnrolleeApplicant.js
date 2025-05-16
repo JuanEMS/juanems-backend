@@ -95,6 +95,16 @@ const enrolleeApplicantSchema = new mongoose.Schema({
     emailAddress: { type: String, trim: true },
     isEmergencyContact: { type: Boolean, default: false }
   }],
+  interviewStatus: {
+    type: String,
+    enum: ['Pending', 'Scheduled', 'Completed', 'Passed', 'Rejected'],
+    default: 'Pending'
+  },
+  examStatus: {
+    type: String,
+    enum: ['Pending', 'Scheduled', 'Completed', 'Passed', 'Rejected'],
+    default: 'Pending'
+  },
   registrationStatus: {
     type: String,
     enum: ['Incomplete', 'Complete'],
