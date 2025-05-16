@@ -18,6 +18,7 @@ const enrollmentApprovalRoutes = require('./routes/enrollmentApproval');
 const connectDB = require('./config/db');
 require('dotenv').config();
 
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 

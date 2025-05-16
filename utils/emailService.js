@@ -74,10 +74,10 @@ function generateRandomPassword() {
 }
 
 // Send OTP with retry mechanism
-const sendOTP = async (email, name, otp, type = 'verification', retries = 2) => {
+const sendOTP = async (email, otp, name, type = 'verification', retries = 2) => {
   try {
-    if (!email || !name || !otp) {
-      throw new Error('Missing required parameters: email, name, or OTP');
+    if (!email || !otp || !name) {
+      throw new Error('Missing required parameters: email, otp, or name');
     }
 
     let subject, text, html;
