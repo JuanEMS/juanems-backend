@@ -1404,7 +1404,10 @@ router.post("/resend-login-otp", async (req, res) => {
     const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json({ message: "Email is required" });
+      return res.status(400).json({
+        message: "Email is required",
+        errorType: "validation",
+      });
     }
 
     const applicant = await EnrolleeApplicant.findOne({
@@ -1445,7 +1448,7 @@ router.post("/resend-login-otp", async (req, res) => {
     applicant.lastLoginOtpAttempt = undefined;
     await applicant.save();
 
-    await sendOTP(email, applicant.firstName, otp, "login");
+    await sendOTP(applicant.email, applicant.firstName, otp, "login");
 
     return res.status(200).json({
       message: "New verification code sent to your email",
@@ -1490,9 +1493,7 @@ router.post("/forgot-password", async (req, res) => {
       await emailService.sendPasswordEmail(
         applicant.email,
         applicant.firstName,
-        newPassword,
-        applicant.studentID,
-        applicant.applicantID
+        newPassword
       );
 
       return res.json({
@@ -1551,7 +1552,14 @@ router.post("/request-password-reset", async (req, res) => {
 
 router.post("/reset-password", async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email, OTP, and new password are required",
+      });
+    }
 
     const user = await EnrolleeApplicant.findOne({ email }).select(
       "+passwordResetOtp +passwordResetOtpExpires +password"
@@ -1569,7 +1577,6 @@ router.post("/reset-password", async (req, res) => {
       return res.status(400).json({ message: "Verification code has expired" });
     }
 
-    const newPassword = generateRandomPassword();
     const salt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
@@ -1605,7 +1612,10 @@ router.post("/resend-otp", async (req, res) => {
     const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json({ message: "Email is required" });
+      return res.status(400).json({
+        message: "Email is required",
+        errorType: "validation",
+      });
     }
 
     const applicant = await EnrolleeApplicant.findOne({
@@ -1794,1585 +1804,282 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Helper function to validate and sanitize string inputs
-const sanitizeString = (value) => {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-};
-
-// Helper function to validate formData structure
-const validateFormData = (formData) => {
-  const errors = [];
-
-  // Step 1: Personal Information (required fields)
-  if (!sanitizeString(formData.firstName))
-    errors.push("First name is required");
-  if (!sanitizeString(formData.lastName)) errors.push("Last name is required");
-  if (!sanitizeString(formData.birthDate))
-    errors.push("Birth date is required");
-  if (!sanitizeString(formData.nationality))
-    errors.push("Nationality is required");
-
-  // Step 2: Admission and Enrollment Requirements
-  if (!sanitizeString(formData.entryLevel))
-    errors.push("Entry level is required");
-
-  // Step 3: Contact Details (required fields)
-  if (!sanitizeString(formData.mobile))
-    errors.push("Mobile number is required");
-  if (!sanitizeString(formData.presentCity))
-    errors.push("Present city is required");
-  if (!sanitizeString(formData.permanentCity))
-    errors.push("Permanent city is required");
-
-  // Step 4: Educational Background (at least one school required)
-  if (
-    !sanitizeString(formData.elementarySchoolName) &&
-    !sanitizeString(formData.juniorHighSchoolName)
-  ) {
-    errors.push(
-      "At least one school name (elementary or junior high) is required"
-    );
-  }
-
-  // Step 5: Family Background
-  if (!Array.isArray(formData.contacts) || formData.contacts.length === 0) {
-    errors.push("At least one family contact is required");
-  } else {
-    formData.contacts.forEach((contact, index) => {
-      if (!sanitizeString(contact.relationship)) {
-        errors.push(`Contact ${index + 1}: Relationship is required`);
-      }
-      if (!sanitizeString(contact.firstName)) {
-        errors.push(`Contact ${index + 1}: First name is required`);
-      }
-      if (!sanitizeString(contact.lastName)) {
-        errors.push(`Contact ${index + 1}: Last name is required`);
-      }
-    });
-  }
-
-  return errors;
-};
-
-router.post("/save-registration", async (req, res) => {
+// Forgot password route - Send OTP for verification
+router.post("/forgot-password/applicant", async (req, res) => {
   try {
-    const { email, formData } = req.body;
-
-    // Log received data for debugging
-    console.log("Received save-registration request:", { email, formData });
-
-    // Validate input
-    if (!sanitizeString(email)) {
-      return res.status(400).json({ error: "Valid email is required" });
-    }
-    if (!formData || typeof formData !== "object") {
-      return res.status(400).json({ error: "Invalid or missing form data" });
-    }
-
-    // Validate formData structure
-    const validationErrors = validateFormData(formData);
-    if (validationErrors.length > 0) {
-      console.log("Validation errors:", validationErrors);
-      return res
-        .status(400)
-        .json({ error: "Validation failed", details: validationErrors });
-    }
-
-    // Find the applicant by email
-    const applicant = await EnrolleeApplicant.findOne({
-      email: email.toLowerCase(),
-      status: "Active",
-    });
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-
-    // Update personal information (Step 1)
-    applicant.prefix = sanitizeString(formData.prefix) || "";
-    applicant.firstName =
-      sanitizeString(formData.firstName) || applicant.firstName;
-    applicant.middleName = sanitizeString(formData.middleName) || "";
-    applicant.lastName =
-      sanitizeString(formData.lastName) || applicant.lastName;
-    applicant.suffix = sanitizeString(formData.suffix) || "";
-    applicant.gender = sanitizeString(formData.gender) || "";
-    applicant.lrnNo = sanitizeString(formData.lrnNo) || "";
-    applicant.civilStatus = sanitizeString(formData.civilStatus) || "";
-    applicant.religion = sanitizeString(formData.religion) || "";
-    applicant.birthDate = sanitizeString(formData.birthDate) || "";
-    applicant.countryOfBirth = sanitizeString(formData.countryOfBirth) || "";
-    applicant.birthPlaceCity = sanitizeString(formData.birthPlaceCity) || "";
-    applicant.birthPlaceProvince =
-      sanitizeString(formData.birthPlaceProvince) || "";
-    applicant.nationality =
-      sanitizeString(formData.nationality) || applicant.nationality;
-
-    // Update admission and enrollment requirements (Step 2)
-    applicant.entryLevel = sanitizeString(formData.entryLevel) || "";
-
-    // Update contact details (Step 3)
-    applicant.presentHouseNo = sanitizeString(formData.presentHouseNo) || "";
-    applicant.presentBarangay = sanitizeString(formData.presentBarangay) || "";
-    applicant.presentCity = sanitizeString(formData.presentCity) || "";
-    applicant.presentProvince = sanitizeString(formData.presentProvince) || "";
-    applicant.presentPostalCode =
-      sanitizeString(formData.presentPostalCode) || "";
-    applicant.permanentHouseNo =
-      sanitizeString(formData.permanentHouseNo) || "";
-    applicant.permanentBarangay =
-      sanitizeString(formData.permanentBarangay) || "";
-    applicant.permanentCity = sanitizeString(formData.permanentCity) || "";
-    applicant.permanentProvince =
-      sanitizeString(formData.permanentProvince) || "";
-    applicant.permanentPostalCode =
-      sanitizeString(formData.permanentPostalCode) || "";
-    applicant.mobile = sanitizeString(formData.mobile) || applicant.mobile;
-    applicant.telephoneNo = sanitizeString(formData.telephoneNo) || "";
-    applicant.emailAddress =
-      sanitizeString(formData.emailAddress) || applicant.email;
-
-    // Update educational background (Step 4)
-    applicant.elementarySchoolName =
-      sanitizeString(formData.elementarySchoolName) || "";
-    applicant.elementaryLastYearAttended =
-      sanitizeString(formData.elementaryLastYearAttended) || "";
-    applicant.elementaryGeneralAverage =
-      sanitizeString(formData.elementaryGeneralAverage) || "";
-    applicant.elementaryRemarks =
-      sanitizeString(formData.elementaryRemarks) || "";
-    applicant.juniorHighSchoolName =
-      sanitizeString(formData.juniorHighSchoolName) || "";
-    applicant.juniorHighLastYearAttended =
-      sanitizeString(formData.juniorHighLastYearAttended) || "";
-    applicant.juniorHighGeneralAverage =
-      sanitizeString(formData.juniorHighGeneralAverage) || "";
-    applicant.juniorHighRemarks =
-      sanitizeString(formData.juniorHighRemarks) || "";
-
-    // Update family background (Step 5)
-    applicant.familyContacts = [];
-    if (Array.isArray(formData.contacts)) {
-      for (const contact of formData.contacts) {
-        if (typeof contact === "object" && contact) {
-          applicant.familyContacts.push({
-            relationship: sanitizeString(contact.relationship) || "",
-            firstName: sanitizeString(contact.firstName) || "",
-            middleName: sanitizeString(contact.middleName) || "",
-            lastName: sanitizeString(contact.lastName) || "",
-            occupation: sanitizeString(contact.occupation) || "",
-            houseNo: sanitizeString(contact.houseNo) || "",
-            city: sanitizeString(contact.city) || "",
-            province: sanitizeString(contact.province) || "",
-            country: sanitizeString(contact.country) || "",
-            mobileNo: sanitizeString(contact.mobileNo) || "",
-            telephoneNo: sanitizeString(contact.telephoneNo) || "",
-            emailAddress: sanitizeString(contact.emailAddress) || "",
-            isEmergencyContact:
-              typeof contact.isEmergencyContact === "boolean"
-                ? contact.isEmergencyContact
-                : false,
-          });
-        }
-      }
-    }
-
-    // Mark registration as complete
-    applicant.registrationStatus = "Complete";
-
-    // Save the updated applicant data
-    await applicant.save();
-
-    res.status(200).json({ message: "Registration data saved successfully" });
-  } catch (err) {
-    console.error("Error saving registration data:", err);
-    if (err.name === "ValidationError") {
-      const errors = Object.values(err.errors)
-        .map((e) => e.message)
-        .join(", ");
-      return res.status(400).json({ error: `Validation error: ${errors}` });
-    }
-    res
-      .status(500)
-      .json({ error: `Server error: ${err.message || "Unknown error"}` });
-  }
-});
-
-router.post("/logout", async (req, res) => {
-  try {
-    const { email, createdAt } = req.body;
-
+    // Validate request body
+    const { email } = req.body;
+    console.log("Forgot password request for email:", email);
     if (!email) {
       return res.status(400).json({
+        success: false,
         message: "Email is required",
-        errorType: "validation",
       });
     }
 
-    let query = {
-      email,
-      status: "Active",
-    };
-
-    if (createdAt) {
-      const date = new Date(createdAt);
-      if (isNaN(date.getTime())) {
-        return res.status(400).json({
-          message: "Invalid createdAt timestamp",
-          errorType: "validation",
-        });
-      }
-      query.createdAt = date;
-    }
-
-    const applicant = await EnrolleeApplicant.findOne(query).sort({
-      createdAt: -1,
-    });
-
-    if (!applicant) {
-      return res.status(404).json({
-        message: "Account not found",
-        errorType: "account_not_found",
-      });
-    }
-
-    applicant.activityStatus = "Offline";
-    applicant.lastLogout = new Date();
-    await applicant.save();
-
-    res.json({
-      message: "Logout successful",
-      activityStatus: applicant.activityStatus,
-    });
-  } catch (error) {
-    console.error("Logout error:", error);
-    res.status(500).json({
-      message: "Server error during logout",
-      errorType: "server_error",
-    });
-  }
-});
-
-router.post("/complete-admission-requirements", async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
-    }
-
-    const applicant = await EnrolleeApplicant.findOne({
-      email: email.toLowerCase(),
-      status: "Active",
-    });
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-
-    // Verify that requirements exist
-    if (
-      !applicant.admissionRequirements ||
-      applicant.admissionRequirements.length === 0
-    ) {
-      return res.status(400).json({ error: "No admission requirements found" });
-    }
-
-    // Allow Submitted, Verified, or Waived for completion
-    const allComplete = applicant.admissionRequirements.every(
-      (req) =>
-        req.status === "Submitted" ||
-        req.status === "Verified" ||
-        req.status === "Waived"
-    );
-    const allAddressed = applicant.admissionRequirements.every(
-      (req) => req.status !== "Not Submitted"
-    );
-
-    if (!allComplete || !allAddressed) {
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
       return res.status(400).json({
-        error: "Not all requirements are submitted, verified, or waived",
-        details: applicant.admissionRequirements.map((req) => ({
-          requirementId: req.requirementId,
-          name: req.name,
-          status: req.status,
-        })),
+        success: false,
+        message: "Invalid email format",
       });
     }
 
-    applicant.admissionRequirementsStatus = "Complete";
-    applicant.admissionAdminFirstStatus = "On-going";
-
-    await applicant.save();
-
-    res.json({
-      message: "Admission requirements marked as complete",
-      admissionRequirementsStatus: applicant.admissionRequirementsStatus,
-      admissionAdminFirstStatus: applicant.admissionAdminFirstStatus,
-    });
-  } catch (err) {
-    console.error("Error completing admission requirements:", err);
-    res
-      .status(500)
-      .json({ error: "Failed to complete admission requirements" });
-  }
-});
-
-router.post("/save-enrollment-requirements", upload.any(), async (req, res) => {
-  try {
-    console.log("Received request body:", req.body);
-    console.log("Received files:", req.files);
-
-    const { email, requirements } = req.body;
-    if (!email || !requirements) {
-      return res
-        .status(400)
-        .json({ error: "Email and requirements are required" });
-    }
-
-    let parsedRequirements;
-    try {
-      parsedRequirements = JSON.parse(requirements);
-    } catch (err) {
-      return res.status(400).json({ error: "Invalid requirements format" });
-    }
-
-    if (!Array.isArray(parsedRequirements) || parsedRequirements.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "Requirements must be a non-empty array" });
-    }
-
-    const files = req.files || [];
-    const fileMap = {};
-    files.forEach((file) => {
-      const match = file.fieldname.match(/^file-(\d+)$/);
-      if (match) {
-        fileMap[match[1]] = file;
-      }
-    });
-
-    console.log("Parsed requirements:", parsedRequirements);
-    console.log(
-      "File map:",
-      Object.keys(fileMap).map((id) => ({ id, name: fileMap[id].originalname }))
-    );
-
-    const applicant = await EnrolleeApplicant.findOne({
-      email: email.toLowerCase(),
-      status: "Active",
-    });
+    // Check if user exists
+    const applicant = await EnrolleeApplicant.findOne({ email });
     if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-
-    // Prevent modifications if status is Complete
-    if (applicant.enrollmentRequirementsStatus === "Complete") {
-      return res.status(403).json({
-        error:
-          "Enrollment requirements are already complete and cannot be modified",
-      });
-    }
-
-    // Initialize enrollmentRequirements if empty
-    if (!applicant.enrollmentRequirements) {
-      applicant.enrollmentRequirements = [];
-    }
-
-    const enrollmentRequirements = parsedRequirements.map((req) => {
-      const file = fileMap[req.id];
-      const existingReq =
-        applicant.enrollmentRequirements.find(
-          (r) => r.requirementId === req.id
-        ) || {};
-
-      // Validate requirement data
-      if (!req.id || !req.name) {
-        throw new Error(
-          `Invalid requirement data: missing id or name for requirement ${req.id}`
-        );
-      }
-
-      // Validate status
-      const validStatuses = [
-        "Not Submitted",
-        "Submitted",
-        "Verified",
-        "Waived",
-      ];
-      const status = validStatuses.includes(req.status)
-        ? req.status
-        : req.waived
-        ? "Waived"
-        : file
-        ? "Submitted"
-        : existingReq.status || "Not Submitted";
-
-      return {
-        requirementId: req.id,
-        name: req.name,
-        fileContent: file ? file.buffer : existingReq.fileContent,
-        fileType: file ? file.mimetype : existingReq.fileType,
-        fileName: file ? file.originalname : existingReq.fileName,
-        status: status,
-        waiverDetails: req.waived
-          ? req.waiverDetails || existingReq.waiverDetails
-          : undefined,
-      };
-    });
-
-    console.log("Constructed enrollmentRequirements:", enrollmentRequirements);
-
-    // Validate that all requirements have valid data
-    const invalidReqs = enrollmentRequirements.filter(
-      (req) =>
-        req.status === "Submitted" &&
-        (!req.fileContent || !req.fileType || !req.fileName)
-    );
-    if (invalidReqs.length > 0) {
-      return res
-        .status(400)
-        .json({ error: "Invalid file data for one or more requirements" });
-    }
-
-    applicant.enrollmentRequirements = enrollmentRequirements;
-
-    await applicant.save();
-
-    const savedApplicant = await EnrolleeApplicant.findOne({
-      email: email.toLowerCase(),
-      status: "Active",
-    });
-    console.log("Applicant after save:", {
-      enrollmentRequirements: savedApplicant.enrollmentRequirements.map(
-        (r) => ({
-          requirementId: r.requirementId,
-          status: r.status,
-          fileName: r.fileName,
-        })
-      ),
-      enrollmentRequirementsStatus: savedApplicant.enrollmentRequirementsStatus,
-    });
-
-    res.json({
-      message: "Enrollment requirements saved successfully",
-      enrollmentRequirements: savedApplicant.enrollmentRequirements,
-      enrollmentRequirementsStatus: savedApplicant.enrollmentRequirementsStatus,
-    });
-  } catch (err) {
-    console.error("Error saving enrollment requirements:", err);
-    res
-      .status(err.status || 500)
-      .json({ error: err.message || "Failed to save enrollment requirements" });
-  }
-});
-
-// Fetch enrollment requirements
-router.get("/enrollment-requirements/:email", async (req, res) => {
-  try {
-    const { email } = req.params;
-    const applicant = await EnrolleeApplicant.findOne({
-      email: email.toLowerCase(),
-      status: "Active",
-    });
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-    res.status(200).json({
-      enrollmentRequirements: applicant.enrollmentRequirements,
-      enrollmentRequirementsStatus: applicant.enrollmentRequirementsStatus,
-    });
-  } catch (err) {
-    console.error("Error fetching enrollment requirements:", err);
-    res
-      .status(500)
-      .json({ error: "Server error while fetching enrollment requirements" });
-  }
-});
-
-// Fetch enrollment file
-router.get("/fetch-enrollment-file/:email/:requirementId", async (req, res) => {
-  try {
-    const { email, requirementId } = req.params;
-    const cleanEmail = email.trim().toLowerCase();
-    const reqId = parseInt(requirementId);
-
-    const applicant = await EnrolleeApplicant.findOne({
-      email: cleanEmail,
-      status: "Active",
-    });
-
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-
-    const requirement = applicant.enrollmentRequirements.find(
-      (req) => req.requirementId === reqId
-    );
-
-    if (!requirement || !requirement.fileContent) {
-      return res
-        .status(404)
-        .json({ error: "File not found for this requirement" });
-    }
-
-    const dataUri = `data:${
-      requirement.fileType
-    };base64,${requirement.fileContent.toString("base64")}`;
-
-    res.json({
-      dataUri,
-      fileType: requirement.fileType,
-      fileName: requirement.fileName,
-    });
-  } catch (err) {
-    console.error("Error fetching enrollment file:", err);
-    res
-      .status(500)
-      .json({ error: "Server error while fetching enrollment file" });
-  }
-});
-
-router.post("/complete-enrollment-requirements", async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
-    }
-
-    const applicant = await EnrolleeApplicant.findOne({
-      email: email.toLowerCase(),
-      status: "Active",
-    });
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-
-    // Verify that requirements exist
-    if (
-      !applicant.enrollmentRequirements ||
-      applicant.enrollmentRequirements.length === 0
-    ) {
-      return res
-        .status(400)
-        .json({ error: "No enrollment requirements found" });
-    }
-
-    // Check if all requirements are Verified or Waived
-    const allComplete = applicant.enrollmentRequirements.every(
-      (req) => req.status === "Verified" || req.status === "Waived"
-    );
-
-    if (!allComplete) {
-      return res.status(400).json({
-        error: "Not all requirements are verified or waived",
-        details: applicant.enrollmentRequirements.map((req) => ({
-          requirementId: req.requirementId,
-          name: req.name,
-          status: req.status,
-        })),
-      });
-    }
-
-    applicant.enrollmentRequirementsStatus = "Complete";
-
-    await applicant.save();
-
-    res.json({
-      message: "Enrollment requirements marked as complete",
-      enrollmentRequirementsStatus: applicant.enrollmentRequirementsStatus,
-    });
-  } catch (err) {
-    console.error("Error completing enrollment requirements:", err);
-    res
-      .status(500)
-      .json({ error: "Failed to complete enrollment requirements" });
-  }
-});
-
-router.get("/activity/:email", async (req, res) => {
-  try {
-    const { email } = req.params;
-    const { createdAt } = req.query;
-    const cleanEmail = email.trim().toLowerCase();
-
-    let query = {
-      email: cleanEmail,
-      status: "Active",
-    };
-
-    if (createdAt) {
-      const date = new Date(createdAt);
-      if (isNaN(date.getTime())) {
-        return res.status(400).json({
-          message: "Invalid createdAt timestamp",
-          errorType: "validation",
-        });
-      }
-      query.createdAt = date;
-    }
-
-    const applicant = await EnrolleeApplicant.findOne(query).sort({
-      createdAt: -1,
-    });
-
-    if (!applicant) {
-      return res.status(404).json({
-        message: "Active account not found",
-        errorType: "account_not_found",
-      });
-    }
-
-    res.json({
-      activityStatus: applicant.activityStatus,
-      loginAttempts: applicant.loginAttempts,
-      lastLogin: applicant.lastLogin,
-      lastLogout: applicant.lastLogout,
-      accountCreatedAt: applicant.createdAt,
-    });
-  } catch (error) {
-    console.error("Activity fetch error:", error);
-    res.status(500).json({
-      message: "Server error while fetching activity data",
-      errorType: "server_error",
-    });
-  }
-});
-
-// In enrolleeApplicants.js, update the /save-voucher-application route
-router.post("/save-voucher-application", upload.any(), async (req, res) => {
-  try {
-    console.log("Received request body:", req.body);
-    console.log("Received files:", req.files);
-
-    const { email, voucherType, requirements } = req.body;
-    if (!email || !voucherType) {
-      return res
-        .status(400)
-        .json({ error: "Email and voucher type are required" });
-    }
-
-    let parsedRequirements = [];
-    if (requirements) {
-      try {
-        parsedRequirements = JSON.parse(requirements);
-      } catch (err) {
-        return res.status(400).json({ error: "Invalid requirements format" });
-      }
-
-      if (!Array.isArray(parsedRequirements)) {
-        return res.status(400).json({ error: "Requirements must be an array" });
-      }
-    }
-
-    const files = req.files || [];
-    const fileMap = {};
-    files.forEach((file) => {
-      const match = file.fieldname.match(/^file-(\d+)$/);
-      if (match) {
-        fileMap[match[1]] = file;
-      }
-    });
-
-    console.log("Parsed requirements:", parsedRequirements);
-    console.log(
-      "File map:",
-      Object.keys(fileMap).map((id) => ({ id, name: fileMap[id].originalname }))
-    );
-
-    const applicant = await EnrolleeApplicant.findOne({
-      email: email.toLowerCase(),
-      status: "Active",
-    });
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-
-    // Prevent modifications if status is Complete
-    if (applicant.voucherApplicationStatus === "Complete") {
-      return res.status(403).json({
-        error: "Voucher application is already complete and cannot be modified",
-      });
-    }
-
-    // Update voucher type
-    applicant.voucherType = voucherType;
-
-    // Initialize voucherRequirements if empty
-    if (!applicant.voucherRequirements) {
-      applicant.voucherRequirements = [];
-    }
-
-    // Process requirements (only for PEAC VOUCHER)
-    if (voucherType === "PEAC VOUCHER" && parsedRequirements.length > 0) {
-      const voucherRequirements = parsedRequirements.map((req) => {
-        const file = fileMap[req.id];
-        const existingReq =
-          applicant.voucherRequirements.find(
-            (r) => r.requirementId === req.id
-          ) || {};
-
-        // Validate requirement data
-        if (!req.id || !req.name) {
-          throw new Error(
-            `Invalid requirement data: missing id or name for requirement ${req.id}`
-          );
-        }
-
-        const requirement = {
-          requirementId: req.id,
-          name: req.name,
-          fileContent: file ? file.buffer : existingReq.fileContent,
-          fileType: file ? file.mimetype : existingReq.fileType,
-          fileName: file ? file.originalname : existingReq.fileName,
-          status: req.waived
-            ? "Waived"
-            : file
-            ? "Submitted"
-            : existingReq.status && existingReq.fileContent
-            ? existingReq.status
-            : "Not Submitted",
-          waiverDetails: req.waived
-            ? req.waiverDetails || existingReq.waiverDetails
-            : undefined,
-        };
-
-        console.log(`Processed requirement ${req.id}:`, {
-          status: requirement.status,
-          fileName: requirement.fileName,
-          waived: req.waived,
-        });
-
-        return requirement;
-      });
-      console.log("Constructed voucherRequirements:", voucherRequirements);
-
-      // Validate that all requirements have valid data
-      const invalidReqs = voucherRequirements.filter(
-        (req) =>
-          req.status === "Submitted" &&
-          (!req.fileContent || !req.fileType || !req.fileName)
-      );
-      if (invalidReqs.length > 0) {
-        return res
-          .status(400)
-          .json({ error: "Invalid file data for one or more requirements" });
-      }
-
-      applicant.voucherRequirements = voucherRequirements;
-
-      // Set enrollmentApprovalAdminStatus to 'Pending' if any requirement is Submitted
-      const hasSubmitted = voucherRequirements.some(
-        (req) => req.status === "Submitted"
-      );
-      if (hasSubmitted) {
-        applicant.enrollmentApprovalAdminStatus = "Pending";
-      }
-    } else {
-      // Clear requirements for non-PEAC vouchers
-      applicant.voucherRequirements = [];
-    }
-
-    // Update status: Complete if voucherType is set and (for PEAC VOUCHER, requirements are addressed)
-    if (voucherType !== "PEAC VOUCHER") {
-      applicant.voucherApplicationStatus = "Complete";
-    } else {
-      const allComplete = applicant.voucherRequirements.every(
-        (req) =>
-          req.status === "Submitted" ||
-          req.status === "Verified" ||
-          req.status === "Waived"
-      );
-      const allAddressed = applicant.voucherRequirements.every(
-        (req) => req.status !== "Not Submitted"
-      );
-      applicant.voucherApplicationStatus =
-        allComplete && allAddressed ? "Complete" : "Incomplete";
-    }
-
-    console.log("Applicant before save:", {
-      voucherType: applicant.voucherType,
-      voucherRequirements: applicant.voucherRequirements.map((r) => ({
-        requirementId: r.requirementId,
-        status: r.status,
-        fileName: r.fileName,
-      })),
-      voucherApplicationStatus: applicant.voucherApplicationStatus,
-      enrollmentApprovalAdminStatus: applicant.enrollmentApprovalAdminStatus,
-    });
-
-    await applicant.save();
-
-    const savedApplicant = await EnrolleeApplicant.findOne({
-      email: email.toLowerCase(),
-      status: "Active",
-    });
-    console.log("Applicant after save:", {
-      voucherType: savedApplicant.voucherType,
-      voucherRequirements: savedApplicant.voucherRequirements.map((r) => ({
-        requirementId: r.requirementId,
-        status: r.status,
-        fileName: r.fileName,
-      })),
-      voucherApplicationStatus: savedApplicant.voucherApplicationStatus,
-      enrollmentApprovalAdminStatus:
-        savedApplicant.enrollmentApprovalAdminStatus,
-    });
-
-    res.json({
-      message: "Voucher application saved successfully",
-      voucherType: savedApplicant.voucherType,
-      voucherRequirements: savedApplicant.voucherRequirements,
-      voucherApplicationStatus: savedApplicant.voucherApplicationStatus,
-      enrollmentApprovalAdminStatus:
-        savedApplicant.enrollmentApprovalAdminStatus,
-    });
-  } catch (err) {
-    console.error("Error saving voucher application:", err);
-    res
-      .status(err.status || 500)
-      .json({ error: err.message || "Failed to save voucher application" });
-  }
-});
-
-router.get("/voucher-application/:email", async (req, res) => {
-  try {
-    const { email } = req.params;
-    const applicant = await EnrolleeApplicant.findOne({
-      email: email.toLowerCase(),
-      status: "Active",
-    });
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-    res.status(200).json({
-      voucherType: applicant.voucherType,
-      voucherRequirements: applicant.voucherRequirements,
-      voucherApplicationStatus: applicant.voucherApplicationStatus,
-      enrollmentApprovalAdminStatus: applicant.enrollmentApprovalAdminStatus,
-      enrollmentApprovalStatus: applicant.enrollmentApprovalStatus,
-      enrollmentApprovalRejectMessage:
-        applicant.enrollmentApprovalRejectMessage || "",
-    });
-  } catch (err) {
-    console.error("Error fetching voucher application:", err);
-    res
-      .status(500)
-      .json({ error: "Server error while fetching voucher application" });
-  }
-});
-// Fetch voucher file
-router.get("/fetch-voucher-file/:email/:requirementId", async (req, res) => {
-  try {
-    const { email, requirementId } = req.params;
-    const cleanEmail = email.trim().toLowerCase();
-    const reqId = parseInt(requirementId);
-
-    const applicant = await EnrolleeApplicant.findOne({
-      email: cleanEmail,
-      status: "Active",
-    });
-
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-
-    const requirement = applicant.voucherRequirements.find(
-      (req) => req.requirementId === reqId
-    );
-
-    if (!requirement || !requirement.fileContent) {
-      return res
-        .status(404)
-        .json({ error: "File not found for this requirement" });
-    }
-
-    const dataUri = `data:${
-      requirement.fileType
-    };base64,${requirement.fileContent.toString("base64")}`;
-
-    res.json({
-      dataUri,
-      fileType: requirement.fileType,
-      fileName: requirement.fileName,
-    });
-  } catch (err) {
-    console.error("Error fetching voucher file:", err);
-    res.status(500).json({ error: "Server error while fetching voucher file" });
-  }
-});
-
-router.post("/save-exam-interview", async (req, res) => {
-  try {
-    const { email, selectedDate, preferredExamAndInterviewApplicationStatus } =
-      req.body;
-
-    if (
-      !sanitizeString(email) ||
-      !selectedDate ||
-      !preferredExamAndInterviewApplicationStatus
-    ) {
-      return res
-        .status(400)
-        .json({ error: "Email, selected date, and status are required" });
-    }
-
-    const applicant = await EnrolleeApplicant.findOne({
-      email: email.toLowerCase(),
-      status: "Active",
-    });
-
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-
-    if (applicant.preferredExamAndInterviewApplicationStatus === "Complete") {
-      return res
-        .status(400)
-        .json({ error: "Exam and interview date already saved" });
-    }
-
-    applicant.preferredExamAndInterviewDate = new Date(selectedDate);
-    applicant.preferredExamAndInterviewApplicationStatus =
-      preferredExamAndInterviewApplicationStatus;
-
-    await applicant.save();
-
-    res
-      .status(200)
-      .json({ message: "Exam and interview date saved successfully" });
-  } catch (err) {
-    console.error("Error saving exam and interview data:", err);
-    res
-      .status(500)
-      .json({ error: "Server error while saving exam and interview data" });
-  }
-});
-
-router.get("/exam-details/:email", async (req, res) => {
-  try {
-    const { email } = req.params;
-    const cleanEmail = email.trim().toLowerCase();
-    console.log(`Received request for exam-details with email: ${cleanEmail}`);
-
-    const applicant = await EnrolleeApplicant.findOne({
-      email: cleanEmail,
-      status: "Active",
-    }).sort({ createdAt: -1 });
-
-    console.log(
-      "Applicant query result:",
-      applicant ? `Found (ID: ${applicant._id})` : "Not found"
-    );
-
-    if (!applicant) {
-      console.log(`No active applicant found for email: ${cleanEmail}`);
-      const otherStatus = await EnrolleeApplicant.findOne({
-        email: cleanEmail,
-      });
-      return res.status(404).json({
-        error: "Active applicant not found",
-        details: otherStatus
-          ? `Applicant found with status: ${otherStatus.status}`
-          : "No applicant record exists for this email",
-      });
-    }
-
-    if (
-      !applicant.approvedExamDate &&
-      applicant.admissionAdminFirstStatus === "On-going"
-    ) {
-      console.log(
-        "Exam details not yet assigned for applicant:",
-        applicant._id
-      );
+      // For security reasons, we still return a success response
+      // This prevents enumeration attacks while revealing whether an email exists
       return res.status(200).json({
-        admissionAdminFirstStatus: applicant.admissionAdminFirstStatus,
-        admissionExamDetailsStatus:
-          applicant.admissionExamDetailsStatus || "Incomplete",
-        approvedExamInterviewResult:
-          applicant.approvedExamInterviewResult || "Pending",
-        examInterviewResultStatus:
-          applicant.examInterviewResultStatus || "Incomplete",
-        admissionApprovalAdminStatus:
-          applicant.admissionApprovalAdminStatus || "Pending",
-        admissionApprovalStatus:
-          applicant.admissionApprovalStatus || "Incomplete",
-        admissionApprovalRejectMessage:
-          applicant.admissionApprovalRejectMessage || "",
+        success: true,
         message:
-          "Exam details are not yet assigned. Application is under review.",
+          "If your email is registered, you will receive a password reset OTP",
       });
     }
 
-    console.log("Returning exam details:", {
-      admissionAdminFirstStatus: applicant.admissionAdminFirstStatus,
-      approvedExamDate: applicant.approvedExamDate,
-      admissionExamDetailsStatus: applicant.admissionExamDetailsStatus,
-      approvedExamInterviewResult: applicant.approvedExamInterviewResult,
-      examInterviewResultStatus: applicant.examInterviewResultStatus,
-      admissionApprovalAdminStatus: applicant.admissionApprovalAdminStatus,
-      admissionApprovalStatus: applicant.admissionApprovalStatus,
-      admissionApprovalRejectMessage: applicant.admissionApprovalRejectMessage,
+    // Generate a secure 6-digit OTP
+    const otp = otpGenerator.generate(6, {
+      upperCaseAlphabets: false,
+      lowerCaseAlphabets: false,
+      specialChars: false,
+      digits: true,
     });
 
-    res.status(200).json({
-      admissionAdminFirstStatus:
-        applicant.admissionAdminFirstStatus || "On-going",
-      approvedExamDate: applicant.approvedExamDate,
-      approvedExamTime: applicant.approvedExamTime,
-      admissionExamDetailsStatus:
-        applicant.admissionExamDetailsStatus || "Incomplete",
-      admissionRejectMessage: applicant.admissionRejectMessage || "",
-      approvedExamFeeAmount: applicant.approvedExamFeeAmount,
-      approvedExamFeeStatus: applicant.approvedExamFeeStatus || "Required",
-      approvedExamRoom: applicant.approvedExamRoom,
-      approvedExamInterviewResult:
-        applicant.approvedExamInterviewResult || "Pending",
-      examInterviewResultStatus:
-        applicant.examInterviewResultStatus || "Incomplete",
-      reservationFeePaymentStepStatus:
-        applicant.reservationFeePaymentStepStatus || "Incomplete",
-      reservationFeeAmountPaid: applicant.reservationFeeAmountPaid || 0,
-      admissionApprovalAdminStatus:
-        applicant.admissionApprovalAdminStatus || "Pending",
-      admissionApprovalStatus:
-        applicant.admissionApprovalStatus || "Incomplete",
-      admissionApprovalRejectMessage:
-        applicant.admissionApprovalRejectMessage || "",
+    // Set OTP expiry time (20 minutes)
+    const otpExpiry = new Date();
+    otpExpiry.setMinutes(otpExpiry.getMinutes() + 20);
+
+    // Store OTP in database
+    // First, delete any existing OTP for this email
+    await PendingOTP.deleteMany({ email });
+
+    // Then create a new OTP record with simplified structure
+    const otpRecord = await PendingOTP.create({
+      email,
+      otp,
+      otpExpiry,
+      verified: false,
+      firstName: applicant.firstName,
+      lastName: applicant.lastName,
     });
-  } catch (err) {
-    console.error("Error fetching exam details:", err.message, err.stack);
-    res.status(500).json({ error: "Server error while fetching exam details" });
-  }
-});
 
-router.post("/update-reservation-status", async (req, res) => {
-  try {
-    const { email, reservationFeePaymentStepStatus, reservationFeeAmountPaid } =
-      req.body;
-
-    if (!sanitizeString(email)) {
-      return res.status(400).json({ error: "Valid email is required" });
-    }
-    if (!["Incomplete", "Complete"].includes(reservationFeePaymentStepStatus)) {
-      return res
-        .status(400)
-        .json({ error: "Invalid reservation fee payment step status" });
-    }
-    if (
-      typeof reservationFeeAmountPaid !== "number" ||
-      reservationFeeAmountPaid < 0
-    ) {
-      return res.status(400).json({ error: "Invalid reservation fee amount" });
-    }
-
-    const updateFields = {
-      reservationFeePaymentStepStatus,
-      reservationFeeAmountPaid,
-    };
-
-    // Set admissionApprovalAdminStatus to Pending when reservation fee is Complete
-    if (reservationFeePaymentStepStatus === "Complete") {
-      updateFields.admissionApprovalAdminStatus = "Pending";
-    }
-
-    const applicant = await EnrolleeApplicant.findOneAndUpdate(
-      { email: email.toLowerCase(), status: "Active" },
-      { $set: updateFields },
-      { new: true }
-    );
-
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-
-    res.status(200).json({
-      message: "Reservation payment status updated successfully",
-      reservationFeePaymentStepStatus:
-        applicant.reservationFeePaymentStepStatus,
-      reservationFeeAmountPaid: applicant.reservationFeeAmountPaid,
-      admissionApprovalAdminStatus: applicant.admissionApprovalAdminStatus,
+    console.log("OTP created:", {
+      id: otpRecord._id,
+      email: otpRecord.email,
+      otp: otpRecord.otp,
+      expires: otpRecord.otpExpiry,
     });
-  } catch (err) {
-    console.error("Error updating reservation payment status:", err);
-    res.status(500).json({
-      error: "Server error while updating reservation payment status",
-    });
-  }
-});
 
-router.post("/update-reservation-status", async (req, res) => {
-  try {
-    const { email, reservationFeePaymentStepStatus, reservationFeeAmountPaid } =
-      req.body;
-
-    if (!sanitizeString(email)) {
-      return res.status(400).json({ error: "Valid email is required" });
-    }
-    if (!["Incomplete", "Complete"].includes(reservationFeePaymentStepStatus)) {
-      return res
-        .status(400)
-        .json({ error: "Invalid reservation fee payment step status" });
-    }
-    if (
-      typeof reservationFeeAmountPaid !== "number" ||
-      reservationFeeAmountPaid < 0
-    ) {
-      return res.status(400).json({ error: "Invalid reservation fee amount" });
-    }
-
-    const applicant = await EnrolleeApplicant.findOneAndUpdate(
-      { email: email.toLowerCase(), status: "Active" },
-      {
-        $set: {
-          reservationFeePaymentStepStatus,
-          reservationFeeAmountPaid,
-        },
+    // Get email config
+    const config = require('../config/emailConfig');
+    const nodemailer = require('nodemailer');
+    
+    const transporter = nodemailer.createTransport({
+      service: config.service,
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.auth.user,
+        pass: config.auth.pass,
       },
-      { new: true }
-    );
-
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-
-    res.status(200).json({
-      message: "Reservation payment status updated successfully",
-      reservationFeePaymentStepStatus:
-        applicant.reservationFeePaymentStepStatus,
-      reservationFeeAmountPaid: applicant.reservationFeeAmountPaid,
     });
-  } catch (err) {
-    console.error("Error updating reservation payment status:", err);
-    res.status(500).json({
-      error: "Server error while updating reservation payment status",
+
+    // Create improved email template with OTP
+    const otpEmailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <h2 style="color: #333; text-align: center;">Password Reset Request</h2>
+        <p>Hello ${applicant.firstName},</p>
+        <p>We received a request to reset your password. Please use the following OTP code to verify your identity:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <div style="font-size: 24px; letter-spacing: 5px; font-weight: bold; background-color: #f5f5f5; padding: 15px; border-radius: 5px; display: inline-block;">${otp}</div>
+        </div>
+        <p>This code will expire in 20 minutes.</p>
+        <p>If you did not request a password reset, please ignore this email or contact our support team.</p>
+        <p>Regards,<br>JuanEMS Support Team</p>
+      </div>
+    `;
+
+    // Send OTP email
+    await transporter.sendMail({
+      from: `${config.senderName} <${config.sender}>`,
+      to: email,
+      subject: "Password Reset OTP",
+      html: otpEmailHtml,
     });
-  }
-});
 
-router.get("/admission-requirements/:email", async (req, res) => {
-  try {
-    const { email } = req.params;
-    const applicant = await EnrolleeApplicant.findOne({
-      email: email.toLowerCase(),
-      status: "Active",
-    });
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-    res.status(200).json({
-      admissionRequirements: applicant.admissionRequirements,
-      admissionRequirementsStatus: applicant.admissionRequirementsStatus,
-      admissionAdminFirstStatus:
-        applicant.admissionAdminFirstStatus || "On-going",
-      approvedExamDate: applicant.approvedExamDate,
-      approvedExamTime: applicant.approvedExamTime,
-      admissionExamDetailsStatus:
-        applicant.admissionExamDetailsStatus || "Incomplete",
-      admissionRejectMessage: applicant.admissionRejectMessage || "",
-      approvedExamFeeAmount: applicant.approvedExamFeeAmount,
-      approvedExamFeeStatus: applicant.approvedExamFeeStatus || "Required",
-      approvedExamRoom: applicant.approvedExamRoom,
-    });
-  } catch (err) {
-    console.error("Error fetching admission requirements:", err);
-    res
-      .status(500)
-      .json({ error: "Server error while fetching admission requirements" });
-  }
-});
+    console.log("Password reset OTP email sent to:", email);
 
-router.get("/exam-interview/:email", async (req, res) => {
-  try {
-    const { email } = req.params;
-    const cleanEmail = email.trim().toLowerCase();
-
-    const applicant = await EnrolleeApplicant.findOne({
-      email: cleanEmail,
-      status: "Active",
-    }).sort({ createdAt: -1 });
-
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-
-    res.status(200).json({
-      selectedDate: applicant.preferredExamAndInterviewDate,
-      preferredExamAndInterviewApplicationStatus:
-        applicant.preferredExamAndInterviewApplicationStatus,
-    });
-  } catch (err) {
-    console.error("Error fetching exam and interview data:", err);
-    res
-      .status(500)
-      .json({ error: "Server error while fetching exam and interview data" });
-  }
-});
-
-router.get("/applicant/ongoing-status-exam-and-interview", async (req, res) => {
-  try {
-    const { email } = req.params;
-    const cleanEmail = email.trim().toLowerCase();
-
-    const applicant = await EnrolleeApplicant.findOne({
-      email: cleanEmail,
-      status: "Active",
-    }).sort({ createdAt: -1 });
-
-    if (!applicant) {
-      return res.status(404).json({ error: "Active applicant not found" });
-    }
-
-    res.status(200).json({
-      selectedDate: applicant.preferredExamAndInterviewDate,
-      preferredExamAndInterviewApplicationStatus:
-        applicant.preferredExamAndInterviewApplicationStatus,
-    });
-  } catch (err) {
-    console.error("Error fetching exam and interview data:", err);
-    res
-      .status(500)
-      .json({ error: "Server error while fetching exam and interview data" });
-  }
-});
-
-/**
- * @route GET /api/applicants/ongoing
- * @desc Get all applicants with "On-going" status with pagination and specific fields
- * @access Private
- */
-router.get("/applicants/ongoing", async (req, res) => {
-  try {
-    // Get page and limit from query params, with defaults
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-
-    // Calculate skip value for pagination
-    const skip = (page - 1) * limit;
-
-    // Query conditions - only filter by admissionAdminFirstStatus
-    const filter = {
-      admissionAdminFirstStatus: "On-going",
-    };
-
-    // Define specific fields to retrieve
-    const fieldProjection = {
-      firstName: 1,
-      middleName: 1,
-      lastName: 1,
-      dob: 1,
-      email: 1,
-      mobile: 1,
-      nationality: 1,
-      academicYear: 1,
-      academicTerm: 1,
-      academicStrand: 1,
-      academicLevel: 1,
-      studentID: 1,
-      applicantID: 1,
-      activityStatus: 1,
-      registrationStatus: 1,
-      preferredExamAndInterviewApplicationStatus: 1,
-      admissionRequirementsStatus: 1,
-      admissionAdminFirstStatus: 1,
-      admissionExamDetailsStatus: 1,
-      approvedExamFeeStatus: 1,
-      approvedExamInterviewResult: 1,
-      examInterviewResultStatus: 1,
-      reservationFeePaymentStepStatus: 1,
-      reservationFeeAmountPaid: 1,
-      admissionApprovalAdminStatus: 1,
-      admissionApprovalStatus: 1,
-      enrollmentRequirementsStatus: 1,
-      voucherType: 1,
-      voucherApplicationStatus: 1,
-      enrollmentApprovalAdminStatus: 1,
-      enrollmentApprovalStatus: 1,
-      interviewStatus: 1,
-      examStatus: 1,
-    };
-
-    // Execute count query for total documents
-    const totalDocs = await EnrolleeApplicant.countDocuments(filter);
-
-    // Execute find query with pagination and specific field projection
-    const applicants = await EnrolleeApplicant.find(filter, fieldProjection)
-      .sort({ createdAt: -1 }) // Sort by newest first
-      .skip(skip)
-      .limit(limit)
-      .lean(); // Use lean() for better performance since we don't need Mongoose instances
-
-    // Calculate pagination metadata
-    const totalPages = Math.ceil(totalDocs / limit);
-    const hasNextPage = page < totalPages;
-    const hasPrevPage = page > 1;
-
-    // Send response
-    res.status(200).json({
+    // Return success response
+    return res.status(200).json({
       success: true,
-      data: {
-        applicants,
-        pagination: {
-          totalDocs,
-          limit,
-          page,
-          totalPages,
-          hasNextPage,
-          hasPrevPage,
-          nextPage: hasNextPage ? page + 1 : null,
-          prevPage: hasPrevPage ? page - 1 : null,
-        },
-      },
+      message:
+        "If your email is registered, you will receive a password reset OTP",
+      // For development purposes only, remove in production
+      otp: otp
     });
-  } catch (err) {
-    console.error("Error fetching ongoing applicants:", err);
-    res.status(500).json({
+  } catch (error) {
+    console.error("Error in forgot password process:", error);
+    return res.status(500).json({
       success: false,
-      error: "Server error while fetching ongoing applicants",
+      message: "An error occurred during the password reset process",
+      error: error.message,
     });
   }
 });
 
-/**
- * @route GET /api/applicants/approved
- * @desc Get all applicants with "Approved" status with pagination and specific fields
- * @access Private
- */
-router.get("/applicants/approved", async (req, res) => {
+// Verify OTP and reset password route
+router.post("/verify-reset-password-otp", async (req, res) => {
   try {
-    // Get page and limit from query params, with defaults
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    // Validate request body
+    const { email, otp } = req.body;
+    console.log(email, otp);
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and OTP are required",
+      });
+    }
 
-    // Calculate skip value for pagination
-    const skip = (page - 1) * limit;
+    // Find the OTP record
+    const otpRecord = await PendingOTP.findOne({
+      email,
+      otp,
+    });
+    console.log(otpRecord);
 
-    // Query conditions - filter by admissionAdminFirstStatus with "Approved" value
-    const filter = {
-      admissionAdminFirstStatus: "Approved",
-    };
+    if (!otpRecord) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired OTP",
+      });
+    }
 
-    // Define specific fields to retrieve
-    const fieldProjection = {
-      firstName: 1,
-      middleName: 1,
-      lastName: 1,
-      dob: 1,
-      email: 1,
-      mobile: 1,
-      nationality: 1,
-      academicYear: 1,
-      academicTerm: 1,
-      academicStrand: 1,
-      academicLevel: 1,
-      studentID: 1,
-      applicantID: 1,
-      activityStatus: 1,
-      registrationStatus: 1,
-      preferredExamAndInterviewApplicationStatus: 1,
-      admissionRequirementsStatus: 1,
-      admissionAdminFirstStatus: 1,
-      admissionExamDetailsStatus: 1,
-      approvedExamFeeStatus: 1,
-      approvedExamInterviewResult: 1,
-      examInterviewResultStatus: 1,
-      reservationFeePaymentStepStatus: 1,
-      reservationFeeAmountPaid: 1,
-      admissionApprovalAdminStatus: 1,
-      admissionApprovalStatus: 1,
-      enrollmentRequirementsStatus: 1,
-      voucherType: 1,
-      voucherApplicationStatus: 1,
-      enrollmentApprovalAdminStatus: 1,
-      enrollmentApprovalStatus: 1,
-      interviewStatus: 1,
-      examStatus: 1,
-    };
+    // Check if OTP is already verified
+    if (otpRecord.verified) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP has already been verified",
+      });
+    }
 
-    // Execute count query for total documents
-    const totalDocs = await EnrolleeApplicant.countDocuments(filter);
+    // Mark OTP as verified
+    otpRecord.verified = true;
+    await otpRecord.save();
 
-    // Execute find query with pagination and specific field projection
-    const applicants = await EnrolleeApplicant.find(filter, fieldProjection)
-      .sort({ createdAt: -1 }) // Sort by newest first
-      .skip(skip)
-      .limit(limit)
-      .lean(); // Use lean() for better performance since we don't need Mongoose instances
-
-    // Calculate pagination metadata
-    const totalPages = Math.ceil(totalDocs / limit);
-    const hasNextPage = page < totalPages;
-    const hasPrevPage = page > 1;
-
-    // Send response
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      data: {
-        applicants,
-        pagination: {
-          totalDocs,
-          limit,
-          page,
-          totalPages,
-          hasNextPage,
-          hasPrevPage,
-          nextPage: hasNextPage ? page + 1 : null,
-          prevPage: hasPrevPage ? page - 1 : null,
-        },
-      },
+      message: "OTP verified successfully. You can now reset your password.",
+      email: email,
+      verified: true
     });
-  } catch (err) {
-    console.error("Error fetching approved applicants:", err);
-    res.status(500).json({
+  } catch (error) {
+    console.error("Error in OTP verification process:", error);
+    return res.status(500).json({
       success: false,
-      error: "Server error while fetching approved applicants",
+      message: "An error occurred during the OTP verification process",
+      error: error.message,
     });
   }
 });
 
-router.patch("/update-interview-and-exam-data", async (req, res) => {
+router.post("/reset-password/applicant", async (req, res) => {
   try {
-    const { applicantId, scheduleData } = req.body;
-
-    // Validate inputs
-    if (!applicantId) {
+    // Validate request body
+    const { email, newPassword } = req.body;
+    console.log("Reset password request for email:", email);
+    console.log("New password:", newPassword);
+  
+    if (!email || !newPassword) {
       return res.status(400).json({
         success: false,
-        message: "Applicant ID is required",
+        message: "Email and new password are required",
       });
     }
 
-    // Check if scheduleData exists
-    if (!scheduleData) {
+    // Find the verified OTP record - simplified query without purpose field
+    const otpRecord = await PendingOTP.findOne({
+      email,
+      otpExpiry: { $gt: new Date() },
+    });
+
+    if (!otpRecord) {
       return res.status(400).json({
         success: false,
-        message: "Schedule data is required",
+        message: "Please verify your OTP first or your verification has expired",
       });
     }
 
-    // Explicitly check each field that might be in scheduleData
-    if (scheduleData.approvedExamDate !== undefined) {
-      updateData.approvedExamDate = scheduleData.approvedExamDate;
-    }
-
-    if (scheduleData.approvedExamFeeAmount !== undefined) {
-      updateData.approvedExamFeeAmount = scheduleData.approvedExamFeeAmount;
-    }
-
-    if (scheduleData.approvedExamRoom !== undefined) {
-      updateData.approvedExamRoom = scheduleData.approvedExamRoom;
-    }
-
-    if (scheduleData.approvedExamTime !== undefined) {
-      updateData.approvedExamTime = scheduleData.approvedExamTime;
-    }
-
-    if (scheduleData.approvedExamFeeStatus !== undefined) {
-      updateData.approvedExamFeeStatus = scheduleData.approvedExamFeeStatus;
-    }
-
-    if (scheduleData.preferredExamAndInterviewDate !== undefined) {
-      updateData.preferredExamAndInterviewDate =
-        scheduleData.preferredExamAndInterviewDate;
-    }
-
-    // If only admissionAdminFirstStatus is in updateData (no schedule fields), check if we should proceed
-    if (
-      Object.keys(updateData).length === 1 &&
-      updateData.admissionAdminFirstStatus
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "No valid schedule data fields provided for update",
-      });
-    }
-
-    // Update the applicant by finding document where _id equals applicantId
-    const updatedApplicant = await EnrolleeApplicant.findOneAndUpdate(
-      { _id: applicantId }, // Explicitly match _id field with applicantId
-      { $set: updateData },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedApplicant) {
+    // Find the applicant
+    const applicant = await EnrolleeApplicant.findOne({ email });
+    if (!applicant) {
       return res.status(404).json({
         success: false,
         message: "Applicant not found",
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "Schedule data updated successfully and status approved",
-      data: updatedApplicant,
-    });
-  } catch (error) {
-    console.error("Error updating interview and exam data:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to update schedule data",
-      error: error.message,
-    });
-  }
-});
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-router.patch("/update-status/results/:applicantId", async (req, res) => {
-  try {
-    const { applicantId } = req.params;
-    const { statusData } = req.body;
+    // Update the password
+    applicant.password = hashedPassword;
+    await applicant.save();
+    console.log("Password updated successfully for:", email);
 
-    if (
-      !statusData ||
-      (!statusData.interviewStatus && !statusData.examStatus)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Status data is required in the request body",
-      });
-    }
+    // Delete the OTP record
+    await PendingOTP.deleteMany({ email });
+    console.log("OTP records deleted for:", email);
 
-    // Create an update object with only the fields that are present in statusData
-    const updateData = {};
-    if (statusData.interviewStatus) {
-      updateData.interviewStatus = statusData.interviewStatus;
-    }
-    if (statusData.examStatus) {
-      updateData.examStatus = statusData.examStatus;
-    }
-
-    // Update the applicant data
-    const updatedApplicant = await EnrolleeApplicant.findByIdAndUpdate(
-      applicantId,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedApplicant) {
-      return res.status(404).json({
-        success: false,
-        message: "Applicant not found",
-      });
-    }
-
-    // Log the successful update
-    console.log(`Updated status for applicant ${applicantId}:`, updateData);
-
-    return res.status(200).json({
-      success: true,
-      message: "Applicant status updated successfully",
-      data: {
-        interviewStatus: updatedApplicant.interviewStatus,
-        examStatus: updatedApplicant.examStatus,
+    // Get email config
+    const config = require('../config/emailConfig');
+    const nodemailer = require('nodemailer');
+    
+    const transporter = nodemailer.createTransport({
+      service: config.service,
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.auth.user,
+        pass: config.auth.pass,
       },
     });
+
+    // Improved password reset confirmation email
+    const confirmationEmailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+        <h2 style="color: #333; text-align: center;">Password Changed Successfully</h2>
+        <p>Hello ${applicant.firstName},</p>
+        <p>Your password has been successfully reset.</p>
+        <p>You can now log in to your account with your new password.</p>
+        <p>If you did not make this change, please contact our support team immediately.</p>
+        <p>Regards,<br>JuanEMS Support Team</p>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `${config.senderName} <${config.sender}>`,
+      to: email,
+      subject: "Password Changed Successfully",
+      html: confirmationEmailHtml,
+    });
+    console.log("Password reset confirmation email sent to:", email);
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successful",
+    });
   } catch (error) {
-    console.error("Error updating applicant status:", error);
+    console.error("Error in reset password process:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to update applicant status",
+      message: "An error occurred during the password reset process",
       error: error.message,
     });
   }
 });
 
-module.exports = router;
+  module.exports = router;
